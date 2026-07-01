@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Visualizador from '@/components/cotizador/Visualizador'
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 }
 
 export default function VisualizadorPage() {
-  return <Visualizador />
+  return (
+    <Suspense fallback={null}>
+      <Visualizador />
+    </Suspense>
+  )
 }
