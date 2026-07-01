@@ -1,0 +1,86 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
+import { calcularCotizacion } from '@/lib/pricing'
+import { PasoForm } from '@/types'
+
+export async function POST(req: NextRequest) {
+  try {
+    const datos: PasoForm = await req.json()
+
+    // 1. Guardar o buscar el lead (compatible con esquema CRM: name, email, telefono, ciudad)
+    const { data: leadExistente } = await supabaseAdmin
+      .from('leads')
+      .select('id')
+      .eq('email', datos.email)
+      .maybeSingle()
+
+    let leadId: string
+
+    if (leadExistente) {
+      leadId = leadExistente.id
+      await supabaseAdmin
+        .from('leads')
+        .update({
+          name: datos.nombre,
+          telefono: datos.telefono,
+          ciudad: datos.ciudad,
+        })
+        .eq('id', leadId)
+    } else {
+      const { data: nuevoLead, error: leadError } = await supabaseAdmin
+        .from('leads')
+        .insert({
+          name: datos.nombre,
+          email: datos.email,
+          telefono: datos.telefono,
+          ciudad: datos.ciudad,
+          fecha_proyecto: datos.fecha_proyecto || null,
+          stage: 'cotizacion',
+          platform: 'WhatsApp',
+        })
+        .select('id')
+        .single()
+
+      if (leadError || !nuevoLead) {
+        throw new Error('Error al guardar el lead: ' + leadError?.message)
+      }
+      leadId = nuevoLead.id
+    }
+
+    // 2. Calcular precios
+    const cantidad = datos.servicio === 'cocina-modular'
+      ? datos.metros_lineales ?? 0
+      : datos.metros_cuadrados ?? 0
+
+    const precio = calcularCotizacion(datos.servicio!, cantidad)
+
+    // 3. Guardar cotización
+    const { data: cotizacion, error: cotError } = await supabaseAdmin
+      .from('cotizaciones')
+      .insert({
+        lead_id: leadId,
+        servicio: datos.servicio,
+        metros_cuadrados: datos.servicio !== 'cocina-modular' ? datos.metros_cuadrados : null,
+        metros_lineales: datos.servicio === 'cocina-modular' ? datos.metros_lineales : null,
+        color_seleccionado: datos.color_seleccionado || null,
+        detalles_adicionales: datos.detalles_adicionales || null,
+        precio_min: precio?.min ?? 0,
+        precio_max: precio?.max ?? 0,
+        estado: 'nuevo',
+      })
+      .select('id')
+      .single()
+
+    if (cotError || !cotizacion) {
+      throw new Error('Error al guardar la cotización: ' + cotError?.message)
+    }
+
+    return NextResponse.json({ id: cotizacion.id, success: true })
+  } catch (error) {
+    console.error('Error en /api/cotizacion:', error)
+    return NextResponse.json(
+      { error: 'Error interno del servidor' },
+      { status: 500 }
+    )
+  }
+}
