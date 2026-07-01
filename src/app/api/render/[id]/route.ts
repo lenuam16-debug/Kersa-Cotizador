@@ -3,9 +3,10 @@ export const runtime = 'edge'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   try {
-    const res = await fetch(`https://api.replicate.com/v1/predictions/${params.id}`, {
+    const res = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
       headers: {
         'Authorization': `Token ${process.env.REPLICATE_API_TOKEN}`,
       },
