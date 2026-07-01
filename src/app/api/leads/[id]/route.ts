@@ -3,7 +3,8 @@ export const runtime = 'edge'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const body = await req.json()
 
   const { data, error } = await supabaseAdmin
@@ -12,7 +13,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       estado: body.estado,
       notas_admin: body.notas_admin,
     })
-    .eq('id', params.id)
+    .eq('id', id)
     .select()
     .single()
 
