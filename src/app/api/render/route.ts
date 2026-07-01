@@ -34,13 +34,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Subir imagen original a Supabase Storage
-    const buffer = Buffer.from(await imagen.arrayBuffer())
+    const arrayBuffer = await imagen.arrayBuffer()
+    const uint8Array = new Uint8Array(arrayBuffer)
     const nombreArchivo = `renders/${Date.now()}-original.${imagen.name.split('.').pop()}`
 
     const { data: uploadData, error: uploadError } = await supabaseAdmin
       .storage
       .from('renders')
-      .upload(nombreArchivo, buffer, { contentType: imagen.type })
+      .upload(nombreArchivo, uint8Array, { contentType: imagen.type })
 
     if (uploadError) throw new Error('Error subiendo imagen: ' + uploadError.message)
 
