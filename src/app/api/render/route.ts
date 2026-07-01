@@ -1,3 +1,5 @@
+export const runtime = 'edge'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { SERVICIOS, COLORES_VINIL, COLORES_COCINA } from '@/lib/pricing'
