@@ -90,10 +90,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id: cotizacion.id, success: true })
   } catch (error) {
-    console.error('Error en /api/cotizacion:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    )
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('Error en /api/cotizacion:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
