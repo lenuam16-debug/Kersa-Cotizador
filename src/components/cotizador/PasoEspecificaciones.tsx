@@ -121,42 +121,51 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
           </div>
         )}
 
-        {/* Selector de color */}
+        {/* Selector de modelo */}
         {mostrarColores && (
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-3">
-              Color / Acabado preferido
+              Modelo / Acabado preferido
             </label>
-            <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
-              {colores.map((color) => (
-                <button
-                  key={color.id}
-                  onClick={() => onChange({ color_seleccionado: color.id })}
-                  title={color.nombre}
-                  className="group flex flex-col items-center gap-1"
-                >
-                  <div
-                    className={cn(
-                      'w-12 h-12 rounded-xl border-3 transition-all shadow-sm',
-                      datos.color_seleccionado === color.id
-                        ? 'scale-110 shadow-md'
-                        : 'border-transparent hover:border-gray-300'
-                    )}
-                    style={{
-                      backgroundColor: color.hex,
-                      borderColor: datos.color_seleccionado === color.id ? '#134a9c' : undefined,
-                      borderWidth: '3px',
-                      borderStyle: 'solid',
-                    }}
-                  />
-                  <span className="text-xs text-gray-500 text-center leading-tight">
-                    {color.nombre}
-                  </span>
-                </button>
-              ))}
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+              {colores.map((color) => {
+                const seleccionado = datos.color_seleccionado === color.id
+                return (
+                  <button
+                    key={color.id}
+                    onClick={() => onChange({ color_seleccionado: color.id })}
+                    title={color.nombre}
+                    className="flex flex-col items-center gap-1 group"
+                  >
+                    <div
+                      className="w-full aspect-square rounded-xl overflow-hidden transition-all shadow-sm"
+                      style={{
+                        border: seleccionado ? '3px solid #134a9c' : '3px solid transparent',
+                        transform: seleccionado ? 'scale(1.05)' : 'scale(1)',
+                      }}
+                    >
+                      {color.imagen ? (
+                        <img
+                          src={color.imagen}
+                          alt={color.nombre}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full" style={{ backgroundColor: color.hex }} />
+                      )}
+                    </div>
+                    <span className={cn(
+                      'text-xs text-center leading-tight',
+                      seleccionado ? 'font-semibold' : 'text-gray-500'
+                    )} style={seleccionado ? { color: '#134a9c' } : {}}>
+                      {color.nombre}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
             <p className="text-xs text-gray-400 mt-2">
-              Los colores exactos pueden variar según disponibilidad de stock.
+              Los modelos exactos pueden variar según disponibilidad de stock.
             </p>
           </div>
         )}

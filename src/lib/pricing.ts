@@ -68,15 +68,24 @@ export function calcularCotizacion(
   return { min: min + acondicionamiento, max: max + acondicionamiento, acondicionamiento }
 }
 
-export const COLORES_VINIL = [
-  { id: 'roble-natural', nombre: 'Roble Natural', hex: '#C8A882' },
-  { id: 'roble-gris', nombre: 'Roble Gris', hex: '#9B9B8E' },
-  { id: 'roble-oscuro', nombre: 'Roble Oscuro', hex: '#6B4F3A' },
-  { id: 'cemento-claro', nombre: 'Cemento Claro', hex: '#C4C4BF' },
-  { id: 'cemento-oscuro', nombre: 'Cemento Oscuro', hex: '#7A7A72' },
-  { id: 'blanco-polar', nombre: 'Blanco Polar', hex: '#F5F5F0' },
-  { id: 'nogal', nombre: 'Nogal', hex: '#8B6914' },
-  { id: 'pino', nombre: 'Pino', hex: '#D4A853' },
+export const COLORES_VINIL: { id: string; nombre: string; hex?: string; imagen?: string }[] = [
+  // 1.8mm — $17/m²
+  { id: 'lucca',       nombre: 'Lucca',       imagen: 'https://kersadesign.com/imagenes/embed_038_91a45af7.jpg' },
+  { id: 'padova',      nombre: 'Padova',      imagen: 'https://kersadesign.com/imagenes/embed_039_d742d92e.jpg' },
+  { id: 'palermo',     nombre: 'Palermo',     imagen: 'https://kersadesign.com/imagenes/embed_040_dab566dc.jpg' },
+  { id: 'positano',    nombre: 'Positano',    imagen: 'https://kersadesign.com/imagenes/embed_041_c6beea5c.jpg' },
+  { id: 'siena',       nombre: 'Siena',       imagen: 'https://kersadesign.com/imagenes/embed_042_cc307bdc.jpg' },
+  // 2.5mm — $17/m²
+  { id: 'alaska',      nombre: 'Alaska',      imagen: 'https://kersadesign.com/imagenes/embed_043_91fea8f0.jpg' },
+  { id: 'alto-adicse', nombre: 'Alto Adicse', imagen: 'https://kersadesign.com/imagenes/embed_044_bf202a33.jpg' },
+  { id: 'arizona',     nombre: 'Arizona',     imagen: 'https://kersadesign.com/imagenes/embed_045_196220e7.jpg' },
+  { id: 'dakota',      nombre: 'Dakota',      imagen: 'https://kersadesign.com/imagenes/embed_046_684025f4.jpg' },
+  { id: 'denver',      nombre: 'Denver',      imagen: 'https://kersadesign.com/imagenes/embed_047_1a57f0d6.jpg' },
+  { id: 'grand-river', nombre: 'Grand River', imagen: 'https://kersadesign.com/imagenes/embed_048_981e026a.jpg' },
+  { id: 'kingston',    nombre: 'Kingston',    imagen: 'https://kersadesign.com/imagenes/embed_049_6dac553a.jpg' },
+  { id: 'manitova',    nombre: 'Manitova',    imagen: 'https://kersadesign.com/imagenes/embed_050_5d8dfb39.jpg' },
+  { id: 'terry-fox',   nombre: 'Terry Fox',   imagen: 'https://kersadesign.com/imagenes/embed_051_ff504fe1.jpg' },
+  { id: 'vicent-bay',  nombre: 'Vicent Bay',  imagen: 'https://kersadesign.com/imagenes/embed_052_3b529724.jpg' },
 ]
 
 export const COLORES_COCINA = [
