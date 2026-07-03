@@ -66,7 +66,7 @@ async function supabaseFetch(url: string, key: string, path: string, body: unkno
   return data as Record<string, unknown>[]
 }
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+export async function onRequestPost({ request, env }: { request: Request; env: Env }) {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json',
@@ -137,7 +137,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 }
 
-export const onRequestOptions: PagesFunction = async () => {
+export async function onRequestOptions() {
   return new Response(null, {
     headers: {
       'Access-Control-Allow-Origin': '*',
