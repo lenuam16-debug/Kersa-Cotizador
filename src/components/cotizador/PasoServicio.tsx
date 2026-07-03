@@ -16,7 +16,7 @@ export default function PasoServicio({ seleccionado, onSelect }: Props) {
       <p className="text-gray-500 mb-8">Selecciona el tipo de instalación que deseas cotizar</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {(Object.entries(SERVICIOS) as [Servicio, typeof SERVICIOS[Servicio]][]).map(([key, s]) => (
+        {(Object.entries(SERVICIOS) as [Servicio, typeof SERVICIOS[Servicio]][]).filter(([key]) => key !== 'laminas-pvc' && key !== 'wallpanel').map(([key, s]) => (
           <button
             key={key}
             onClick={() => onSelect(key)}

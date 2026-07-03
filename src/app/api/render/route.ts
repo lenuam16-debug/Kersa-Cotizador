@@ -13,6 +13,7 @@ function buildPrompt(servicio: Servicio, colorId?: string): string {
 
   const prompts: Record<Servicio, string> = {
     'vinil-lvt': `photorealistic interior room with luxury vinyl plank flooring in ${colorNombre || 'natural oak'} color, high quality installation, modern home, bright lighting, professional interior design photo, 8k`,
+    'vinil-spc': `photorealistic interior room with SPC vinyl plank flooring in ${colorNombre || 'natural oak'} color, 5mm thick, high quality installation, modern home, bright lighting, professional interior design photo, 8k`,
     'laminas-pvc': `photorealistic interior room with white PVC ceiling panels installed, modern home, bright lighting, clean finish, professional interior design photo, 8k`,
     'wallpanel': `photorealistic interior room with decorative wall panels ${colorNombre || 'white'}, modern home, bright natural lighting, luxury interior design, professional photo, 8k`,
     'cocina-modular': `photorealistic modern modular kitchen with ${colorNombre || 'white matte'} cabinets, clean design, built-in refrigerator enclosure, bright lighting, professional interior design photo, 8k`,

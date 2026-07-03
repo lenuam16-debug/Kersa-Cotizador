@@ -2,10 +2,18 @@ import { Servicio } from '@/types'
 
 export const SERVICIOS = {
   'vinil-lvt': {
-    nombre: 'Piso Vinílico LVT',
-    descripcion: 'Vinilo de lujo 2.5mm con instalación incluida',
+    nombre: 'Piso Vinil LVT',
+    descripcion: 'Vinil de lujo 2.5mm con instalación incluida desde $17/m²',
     unidad: 'm²',
     precioBase: 17,
+    margen: 0.1,
+    icono: '🪵',
+  },
+  'vinil-spc': {
+    nombre: 'Piso Vinil SPC',
+    descripcion: 'Vinil SPC 5mm con instalación incluida desde $25/m²',
+    unidad: 'm²',
+    precioBase: 25,
     margen: 0.1,
     icono: '🪵',
   },
