@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
         .single()
 
       if (leadError || !nuevoLead) {
-        throw new Error('Error al guardar el lead: ' + leadError?.message)
+        throw new Error('Lead error: ' + JSON.stringify(leadError))
       }
       leadId = nuevoLead.id
     }
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (cotError || !cotizacion) {
-      throw new Error('Error al guardar la cotización: ' + cotError?.message)
+      throw new Error('Cotizacion error: ' + JSON.stringify(cotError))
     }
 
     return NextResponse.json({ id: cotizacion.id, success: true })
