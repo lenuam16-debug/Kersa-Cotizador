@@ -1,11 +1,5 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  experimental: {
-    // Required for Cloudflare Pages (Edge Runtime)
-  },
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
-
-import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());

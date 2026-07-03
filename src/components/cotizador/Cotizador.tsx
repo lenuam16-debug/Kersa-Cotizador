@@ -38,17 +38,64 @@ export default function Cotizador() {
     setEnviando(true)
     setError(null)
     try {
-      const res = await fetch('/api/cotizacion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos),
-      })
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.error || `HTTP ${res.status}`)
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Prefer': 'return=representation',
       }
-      const json = await res.json()
-      setCotizacionId(json.id)
+
+      const ciudadCompleta = datos.ciudad
+        ? `${datos.ciudad} - ${datos.municipio ?? ''}`.trim().replace(/ - $/, '')
+        : null
+
+      // 1. Upsert lead
+      const leadsRes = await fetch(`${supabaseUrl}/rest/v1/leads`, {
+        method: 'POST',
+        headers: { ...headers, 'Prefer': 'return=representation,resolution=merge-duplicates', 'on-conflict': 'email' },
+        body: JSON.stringify({
+          name: datos.nombre, email: datos.email, telefono: datos.telefono,
+          ciudad: ciudadCompleta, stage: 'cotizacion', platform: 'Cotizador Web',
+        }),
+      })
+      const leads = await leadsRes.json()
+      if (!leadsRes.ok) throw new Error('Error guardando lead: ' + JSON.stringify(leads))
+      const leadId = Array.isArray(leads) ? leads[0]?.id : leads?.id
+      if (!leadId) throw new Error('No se obtuvo ID del lead')
+
+      // 2. Calcular precio client-side
+      const { calcularCotizacion } = await import('@/lib/pricing')
+      const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-spc'
+      const cantidad = datos.servicio === 'cocina-modular' ? (datos.metros_lineales ?? 0) : (datos.metros_cuadrados ?? 0)
+      const requiereAcond = esVinil && !!datos.tipo_piso_actual && !['granito', 'microcemento'].includes(datos.tipo_piso_actual)
+      const precio = calcularCotizacion(datos.servicio!, cantidad, requiereAcond)
+
+      // 3. Insert cotización
+      const cotRes = await fetch(`${supabaseUrl}/rest/v1/cotizaciones`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          lead_id: leadId, servicio: datos.servicio,
+          metros_cuadrados: datos.servicio !== 'cocina-modular' ? datos.metros_cuadrados : null,
+          metros_lineales: datos.servicio === 'cocina-modular' ? datos.metros_lineales : null,
+          color_seleccionado: datos.color_seleccionado || null,
+          detalles_adicionales: [
+            datos.tipo_piso_actual ? `Piso actual: ${datos.tipo_piso_actual}` : null,
+            requiereAcond ? 'Requiere acondicionamiento' : null,
+            datos.detalles_adicionales || null,
+          ].filter(Boolean).join(' | ') || null,
+          precio_min: precio?.min ?? 0, precio_max: precio?.max ?? 0, estado: 'nuevo',
+        }),
+      })
+      const cotizaciones = await cotRes.json()
+      if (!cotRes.ok) throw new Error('Error guardando cotización: ' + JSON.stringify(cotizaciones))
+      const cot = Array.isArray(cotizaciones) ? cotizaciones[0] : cotizaciones
+      if (!cot?.id) throw new Error('No se obtuvo ID de cotización')
+
+      setCotizacionId(cot.id)
       setPaso(3)
     } catch (e) {
       setError('Error: ' + (e instanceof Error ? e.message : String(e)))
