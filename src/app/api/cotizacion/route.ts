@@ -2,7 +2,7 @@ export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { calcularCotizacion } from '@/lib/pricing'
 import { PasoForm } from '@/types'
 
@@ -10,44 +10,29 @@ export async function POST(req: NextRequest) {
   try {
     const datos: PasoForm = await req.json()
 
-    // 1. Guardar o buscar el lead (compatible con esquema CRM: name, email, telefono, ciudad)
-    const { data: leadExistente } = await supabaseAdmin
+    const ciudadCompleta = datos.ciudad
+      ? `${datos.ciudad} - ${datos.municipio ?? ''}`.trim().replace(/ - $/, '')
+      : null
+
+    // 1. Upsert lead por email (no necesita SELECT previo ni service role)
+    const { data: lead, error: leadError } = await supabase
       .from('leads')
-      .select('id')
-      .eq('email', datos.email)
-      .maybeSingle()
-
-    let leadId: string
-
-    if (leadExistente) {
-      leadId = leadExistente.id
-      await supabaseAdmin
-        .from('leads')
-        .update({
-          name: datos.nombre,
-          telefono: datos.telefono,
-          ciudad: datos.ciudad ? `${datos.ciudad} - ${datos.municipio ?? ''}`.trim().replace(/ - $/, '') : null,
-        })
-        .eq('id', leadId)
-    } else {
-      const { data: nuevoLead, error: leadError } = await supabaseAdmin
-        .from('leads')
-        .insert({
+      .upsert(
+        {
           name: datos.nombre,
           email: datos.email,
           telefono: datos.telefono,
-          ciudad: datos.ciudad ? `${datos.ciudad} - ${datos.municipio ?? ''}`.trim().replace(/ - $/, '') : null,
-          fecha_proyecto: datos.fecha_proyecto || null,
+          ciudad: ciudadCompleta,
           stage: 'cotizacion',
-          platform: 'WhatsApp',
-        })
-        .select('id')
-        .single()
+          platform: 'Cotizador Web',
+        },
+        { onConflict: 'email', ignoreDuplicates: false }
+      )
+      .select('id')
+      .single()
 
-      if (leadError || !nuevoLead) {
-        throw new Error('Lead error: ' + JSON.stringify(leadError))
-      }
-      leadId = nuevoLead.id
+    if (leadError || !lead) {
+      throw new Error('Lead error: ' + JSON.stringify(leadError))
     }
 
     // 2. Calcular precios
@@ -64,10 +49,10 @@ export async function POST(req: NextRequest) {
     const precio = calcularCotizacion(datos.servicio!, cantidad, requiereAcondicionamiento)
 
     // 3. Guardar cotización
-    const { data: cotizacion, error: cotError } = await supabaseAdmin
+    const { data: cotizacion, error: cotError } = await supabase
       .from('cotizaciones')
       .insert({
-        lead_id: leadId,
+        lead_id: lead.id,
         servicio: datos.servicio,
         metros_cuadrados: datos.servicio !== 'cocina-modular' ? datos.metros_cuadrados : null,
         metros_lineales: datos.servicio === 'cocina-modular' ? datos.metros_lineales : null,
