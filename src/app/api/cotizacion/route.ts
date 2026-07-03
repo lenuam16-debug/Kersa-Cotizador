@@ -2,12 +2,21 @@ export const runtime = 'edge'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import { calcularCotizacion } from '@/lib/pricing'
 import { PasoForm } from '@/types'
 
 export async function POST(req: NextRequest) {
   try {
+    const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('placeholder')) {
+      return NextResponse.json({ error: `ENV no configuradas: URL=${supabaseUrl?.substring(0, 20)}` }, { status: 500 })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
     const datos: PasoForm = await req.json()
 
     const ciudadCompleta = datos.ciudad
