@@ -18,7 +18,13 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
     ? datos.metros_lineales ?? 0
     : datos.metros_cuadrados ?? 0
 
-  const precio = calcularCotizacion(servicio, cantidad)
+  const esVinil = servicio === 'vinil-lvt' || servicio === 'vinil-spc'
+  const pisosSinAcond = ['granito', 'microcemento']
+  const requiereAcondicionamiento = esVinil &&
+    !!datos.tipo_piso_actual &&
+    !pisosSinAcond.includes(datos.tipo_piso_actual)
+
+  const precio = calcularCotizacion(servicio, cantidad, requiereAcondicionamiento)
   const colores = servicio === 'cocina-modular' ? COLORES_COCINA : COLORES_VINIL
   const colorInfo = colores.find(c => c.id === datos.color_seleccionado)
 
@@ -49,9 +55,17 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
         {precio ? (
           <div className="text-center py-4">
             <p className="text-sm text-gray-500 mb-1">Presupuesto estimado</p>
-            <p className="text-4xl font-bold text-blue-700">
+            <p className="text-4xl font-bold" style={{ color: '#134a9c' }}>
               {formatCurrency(precio.min)} – {formatCurrency(precio.max)}
             </p>
+            {precio.acondicionamiento > 0 && (
+              <div className="mt-3 text-left bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm">
+                <p className="font-semibold text-amber-800">Incluye acondicionamiento de piso</p>
+                <p className="text-amber-700 mt-0.5">
+                  +{formatCurrency(precio.acondicionamiento)} estimado ($3/m²). El precio exacto puede variar entre $3–$7/m² y será confirmado por nuestros asesores.
+                </p>
+              </div>
+            )}
             <p className="text-xs text-gray-400 mt-2">
               * Precio referencial. Puede variar según condiciones del sitio.
             </p>

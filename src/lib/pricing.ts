@@ -50,17 +50,22 @@ export const SERVICIOS = {
   icono: string
 }>
 
+export const COSTO_ACONDICIONAMIENTO = 3 // $/m² estimado base
+
 export function calcularCotizacion(
   servicio: Servicio,
-  cantidad: number
-): { min: number; max: number } | null {
+  cantidad: number,
+  requiereAcondicionamiento = false
+): { min: number; max: number; acondicionamiento: number } | null {
   const s = SERVICIOS[servicio]
   if (!s.precioBase) return null
 
   const base = s.precioBase * cantidad
   const min = Math.round(base * 0.95)
   const max = Math.round(base * (1 + s.margen))
-  return { min, max }
+  const acondicionamiento = requiereAcondicionamiento ? COSTO_ACONDICIONAMIENTO * cantidad : 0
+
+  return { min: min + acondicionamiento, max: max + acondicionamiento, acondicionamiento }
 }
 
 export const COLORES_VINIL = [

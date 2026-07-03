@@ -41,11 +41,23 @@ export interface Render {
   created_at?: string
 }
 
+export type TipoPiso =
+  | 'ceramica'
+  | 'porcelanato'
+  | 'losa-rustica'
+  | 'cemento'
+  | 'granito'
+  | 'microcemento'
+  | 'otro'
+
+export const PISOS_SIN_ACONDICIONAMIENTO: TipoPiso[] = ['granito', 'microcemento']
+
 export interface PasoForm {
   servicio?: Servicio
   metros_cuadrados?: number
   metros_lineales?: number
   color_seleccionado?: string
+  tipo_piso_actual?: TipoPiso
   detalles_adicionales?: string
   nombre?: string   // campo del form (se mapea a name en BD)
   telefono?: string

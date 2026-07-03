@@ -1,7 +1,7 @@
-﻿'use client'
+'use client'
 
-import { Servicio, PasoForm } from '@/types'
-import { SERVICIOS, COLORES_VINIL, COLORES_COCINA } from '@/lib/pricing'
+import { Servicio, PasoForm, TipoPiso, PISOS_SIN_ACONDICIONAMIENTO } from '@/types'
+import { SERVICIOS, COLORES_VINIL, COLORES_COCINA, COSTO_ACONDICIONAMIENTO } from '@/lib/pricing'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -10,11 +10,28 @@ interface Props {
   onChange: (d: Partial<PasoForm>) => void
 }
 
+const TIPOS_PISO: { id: TipoPiso; label: string }[] = [
+  { id: 'ceramica',     label: 'Cerámica / Baldosa' },
+  { id: 'porcelanato',  label: 'Porcelanato' },
+  { id: 'losa-rustica', label: 'Losa rústica' },
+  { id: 'cemento',      label: 'Cemento / Sobrepiso' },
+  { id: 'granito',      label: 'Granito' },
+  { id: 'microcemento', label: 'Microcemento' },
+  { id: 'otro',         label: 'Otro' },
+]
+
+const esVinil = (s: Servicio) => s === 'vinil-lvt' || s === 'vinil-spc'
+
 export default function PasoEspecificaciones({ servicio, datos, onChange }: Props) {
   const info = SERVICIOS[servicio]
   const colores = servicio === 'cocina-modular' ? COLORES_COCINA : COLORES_VINIL
-  const mostrarColores = servicio === 'vinil-lvt' || servicio === 'cocina-modular'
+  const mostrarColores = servicio === 'vinil-lvt' || servicio === 'vinil-spc' || servicio === 'cocina-modular'
   const esMetrosCuadrados = servicio !== 'cocina-modular'
+
+  const requiereAcondicionamiento =
+    esVinil(servicio) &&
+    !!datos.tipo_piso_actual &&
+    !PISOS_SIN_ACONDICIONAMIENTO.includes(datos.tipo_piso_actual)
 
   return (
     <div>
@@ -41,7 +58,10 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
                 if (esMetrosCuadrados) onChange({ metros_cuadrados: val })
                 else onChange({ metros_lineales: val })
               }}
-              className="w-40 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-400 focus:outline-none text-lg font-medium"
+              className="w-40 px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none text-lg font-medium"
+              style={{ borderColor: 'rgb(229 231 235)' }}
+              onFocus={e => e.target.style.borderColor = '#134a9c'}
+              onBlur={e => e.target.style.borderColor = 'rgb(229 231 235)'}
             />
             <span className="text-gray-500 font-medium">{info.unidad}</span>
           </div>
@@ -51,6 +71,55 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
               : 'Longitud total de los módulos de cocina que necesitas.'}
           </p>
         </div>
+
+        {/* Tipo de piso actual — solo vinil */}
+        {esVinil(servicio) && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">
+              ¿Qué tipo de piso tienes actualmente?
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {TIPOS_PISO.map((p) => {
+                const seleccionado = datos.tipo_piso_actual === p.id
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => onChange({ tipo_piso_actual: p.id })}
+                    style={seleccionado ? { borderColor: '#134a9c', backgroundColor: '#eef2fb' } : {}}
+                    className={cn(
+                      'px-3 py-2.5 rounded-xl border-2 text-sm font-medium text-left transition-all',
+                      seleccionado ? '' : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                    )}
+                  >
+                    <span style={seleccionado ? { color: '#134a9c' } : {}}>{p.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Aviso de acondicionamiento */}
+            {datos.tipo_piso_actual && (
+              <div className={cn(
+                'mt-3 p-3 rounded-xl text-sm',
+                requiereAcondicionamiento
+                  ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                  : 'bg-green-50 border border-green-200 text-green-800'
+              )}>
+                {requiereAcondicionamiento ? (
+                  <>
+                    <p className="font-semibold">Se requiere acondicionamiento de piso</p>
+                    <p className="mt-0.5">Se agrega <strong>${COSTO_ACONDICIONAMIENTO}/m²</strong> estimado. El precio final puede variar entre $3–$7/m² según las condiciones del piso, lo cual será confirmado por nuestros asesores.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold">¡No requiere acondicionamiento!</p>
+                    <p className="mt-0.5">Tu piso actual permite instalar el vinil directamente.</p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Selector de color */}
         {mostrarColores && (
@@ -64,18 +133,21 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
                   key={color.id}
                   onClick={() => onChange({ color_seleccionado: color.id })}
                   title={color.nombre}
-                  className={cn(
-                    'group flex flex-col items-center gap-1',
-                  )}
+                  className="group flex flex-col items-center gap-1"
                 >
                   <div
                     className={cn(
                       'w-12 h-12 rounded-xl border-3 transition-all shadow-sm',
                       datos.color_seleccionado === color.id
-                        ? 'border-blue-500 scale-110 shadow-md'
+                        ? 'scale-110 shadow-md'
                         : 'border-transparent hover:border-gray-300'
                     )}
-                    style={{ backgroundColor: color.hex }}
+                    style={{
+                      backgroundColor: color.hex,
+                      borderColor: datos.color_seleccionado === color.id ? '#134a9c' : undefined,
+                      borderWidth: '3px',
+                      borderStyle: 'solid',
+                    }}
                   />
                   <span className="text-xs text-gray-500 text-center leading-tight">
                     {color.nombre}
@@ -89,15 +161,6 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
           </div>
         )}
 
-        {/* PVC y Wallpanel — solo solicitar info */}
-        {(servicio === 'laminas-pvc' || servicio === 'wallpanel') && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <p className="text-blue-900 text-sm font-medium">
-              📐 Para {info.nombre}, un asesor te contactará con la cotización personalizada según el diseño y materiales que elijas.
-            </p>
-          </div>
-        )}
-
         {/* Detalles adicionales */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -105,14 +168,13 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
           </label>
           <textarea
             rows={3}
-            placeholder="Ej: El piso actual es de baldosa, hay escaleras, el espacio tiene humedad..."
+            placeholder="Ej: hay escaleras, el espacio tiene humedad, hay muebles que mover..."
             value={datos.detalles_adicionales ?? ''}
             onChange={(e) => onChange({ detalles_adicionales: e.target.value })}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-400 focus:outline-none resize-none text-sm"
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none resize-none text-sm"
           />
         </div>
       </div>
     </div>
   )
 }
-

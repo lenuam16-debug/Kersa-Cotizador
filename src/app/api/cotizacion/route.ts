@@ -55,7 +55,13 @@ export async function POST(req: NextRequest) {
       ? datos.metros_lineales ?? 0
       : datos.metros_cuadrados ?? 0
 
-    const precio = calcularCotizacion(datos.servicio!, cantidad)
+    const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-spc'
+    const pisosSinAcond = ['granito', 'microcemento']
+    const requiereAcondicionamiento = esVinil &&
+      !!datos.tipo_piso_actual &&
+      !pisosSinAcond.includes(datos.tipo_piso_actual)
+
+    const precio = calcularCotizacion(datos.servicio!, cantidad, requiereAcondicionamiento)
 
     // 3. Guardar cotización
     const { data: cotizacion, error: cotError } = await supabaseAdmin
@@ -66,7 +72,11 @@ export async function POST(req: NextRequest) {
         metros_cuadrados: datos.servicio !== 'cocina-modular' ? datos.metros_cuadrados : null,
         metros_lineales: datos.servicio === 'cocina-modular' ? datos.metros_lineales : null,
         color_seleccionado: datos.color_seleccionado || null,
-        detalles_adicionales: datos.detalles_adicionales || null,
+        detalles_adicionales: [
+          datos.tipo_piso_actual ? `Piso actual: ${datos.tipo_piso_actual}` : null,
+          requiereAcondicionamiento ? 'Requiere acondicionamiento' : null,
+          datos.detalles_adicionales || null,
+        ].filter(Boolean).join(' | ') || null,
         precio_min: precio?.min ?? 0,
         precio_max: precio?.max ?? 0,
         estado: 'nuevo',
