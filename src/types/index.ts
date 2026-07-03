@@ -63,5 +63,6 @@ export interface PasoForm {
   telefono?: string
   email?: string
   ciudad?: string
+  municipio?: string
   fecha_proyecto?: string
 }

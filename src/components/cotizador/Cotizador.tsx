@@ -29,7 +29,7 @@ export default function Cotizador() {
       return !!cantidad && cantidad > 0
     }
     if (paso === 2) {
-      return !!(datos.nombre?.trim() && datos.telefono?.trim() && datos.email?.trim() && datos.ciudad?.trim())
+      return !!(datos.nombre?.trim() && datos.telefono?.trim() && datos.email?.trim() && datos.ciudad?.trim() && datos.municipio?.trim())
     }
     return true
   }

@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
         .update({
           name: datos.nombre,
           telefono: datos.telefono,
-          ciudad: datos.ciudad,
+          ciudad: datos.ciudad ? `${datos.ciudad} - ${datos.municipio ?? ''}`.trim().replace(/ - $/, '') : null,
         })
         .eq('id', leadId)
     } else {
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
           name: datos.nombre,
           email: datos.email,
           telefono: datos.telefono,
-          ciudad: datos.ciudad,
+          ciudad: datos.ciudad ? `${datos.ciudad} - ${datos.municipio ?? ''}`.trim().replace(/ - $/, '') : null,
           fecha_proyecto: datos.fecha_proyecto || null,
           stage: 'cotizacion',
           platform: 'WhatsApp',
