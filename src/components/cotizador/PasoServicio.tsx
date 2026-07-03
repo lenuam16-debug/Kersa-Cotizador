@@ -1,8 +1,15 @@
-﻿'use client'
+'use client'
 
+import Image from 'next/image'
 import { Servicio } from '@/types'
 import { SERVICIOS } from '@/lib/pricing'
 import { cn } from '@/lib/utils'
+
+const IMAGENES: Record<string, string> = {
+  'vinil-lvt': 'https://kersadesign.com/imagenes/embed_038_91a45af7.jpg',
+  'vinil-spc': 'https://kersadesign.com/imagenes/embed_059_9dd044f6.jpg',
+  'cocina-modular': 'https://kersadesign.com/imagenes/embed_078_4b2cca2f.jpg',
+}
 
 interface Props {
   seleccionado?: Servicio
@@ -21,32 +28,44 @@ export default function PasoServicio({ seleccionado, onSelect }: Props) {
             key={key}
             onClick={() => onSelect(key)}
             className={cn(
-              'p-6 rounded-2xl border-2 text-left transition-all duration-200 hover:shadow-md group',
+              'rounded-2xl border-2 text-left transition-all duration-200 hover:shadow-md overflow-hidden',
               seleccionado === key
-                ? 'border-blue-500 bg-blue-50 shadow-md'
+                ? 'border-blue-500 shadow-md'
                 : 'border-gray-200 bg-white hover:border-blue-300'
             )}
           >
-            <span className="text-4xl mb-3 block">{s.icono}</span>
-            <h3 className={cn(
-              'font-bold text-lg mb-1',
-              seleccionado === key ? 'text-blue-800' : 'text-gray-800'
-            )}>
-              {s.nombre}
-            </h3>
-            <p className="text-sm text-gray-500">{s.descripcion}</p>
-            {s.precioBase && (
-              <p className={cn(
-                'mt-3 text-sm font-semibold',
-                seleccionado === key ? 'text-blue-700' : 'text-gray-400'
-              )}>
-                Desde ${s.precioBase}/{s.unidad}
-              </p>
+            {IMAGENES[key] && (
+              <div className="relative w-full h-40">
+                <img
+                  src={IMAGENES[key]}
+                  alt={s.nombre}
+                  className="w-full h-full object-cover"
+                />
+                {seleccionado === key && (
+                  <div className="absolute inset-0 bg-blue-500/20" />
+                )}
+              </div>
             )}
+            <div className={cn('p-4', seleccionado === key ? 'bg-blue-50' : 'bg-white')}>
+              <h3 className={cn(
+                'font-bold text-lg mb-1',
+                seleccionado === key ? 'text-blue-800' : 'text-gray-800'
+              )}>
+                {s.nombre}
+              </h3>
+              <p className="text-sm text-gray-500">{s.descripcion}</p>
+              {s.precioBase && (
+                <p className={cn(
+                  'mt-2 text-sm font-semibold',
+                  seleccionado === key ? 'text-blue-700' : 'text-gray-400'
+                )}>
+                  Desde ${s.precioBase}/{s.unidad}
+                </p>
+              )}
+            </div>
           </button>
         ))}
       </div>
     </div>
   )
 }
-
