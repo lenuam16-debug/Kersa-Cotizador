@@ -27,10 +27,11 @@ export default function PasoServicio({ seleccionado, onSelect }: Props) {
           <button
             key={key}
             onClick={() => onSelect(key)}
+            style={seleccionado === key ? { borderColor: '#134a9c' } : {}}
             className={cn(
               'rounded-2xl border-2 text-left transition-all duration-200 hover:shadow-md overflow-hidden',
               seleccionado === key
-                ? 'border-blue-500 shadow-md'
+                ? 'shadow-md'
                 : 'border-gray-200 bg-white hover:border-blue-300'
             )}
           >
@@ -42,23 +43,23 @@ export default function PasoServicio({ seleccionado, onSelect }: Props) {
                   className="w-full h-full object-cover"
                 />
                 {seleccionado === key && (
-                  <div className="absolute inset-0 bg-blue-500/20" />
+                  <div className="absolute inset-0" style={{ backgroundColor: '#134a9c33' }} />
                 )}
               </div>
             )}
             <div className={cn('p-4', seleccionado === key ? 'bg-blue-50' : 'bg-white')}>
               <h3 className={cn(
                 'font-bold text-lg mb-1',
-                seleccionado === key ? 'text-blue-800' : 'text-gray-800'
-              )}>
+                seleccionado === key ? '' : 'text-gray-800'
+              )} style={seleccionado === key ? { color: '#134a9c' } : {}}>
                 {s.nombre}
               </h3>
               <p className="text-sm text-gray-500">{s.descripcion}</p>
               {s.precioBase && (
-                <p className={cn(
-                  'mt-2 text-sm font-semibold',
-                  seleccionado === key ? 'text-blue-700' : 'text-gray-400'
-                )}>
+                <p
+                  className="mt-2 text-sm font-semibold"
+                  style={seleccionado === key ? { color: '#134a9c' } : { color: '#9ca3af' }}
+                >
                   Desde ${s.precioBase}/{s.unidad}
                 </p>
               )}

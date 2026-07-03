@@ -69,10 +69,12 @@ export default function Cotizador() {
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-black tracking-tight">
-            KERSA <span className="text-blue-700">DESIGN</span>
-          </h1>
-          <p className="text-gray-500 text-xs mt-1 tracking-widest uppercase">Materiales con acabados de primera</p>
+          <img
+            src="https://kersadesign.com/imagenes/embed_000_dc2feea6.png"
+            alt="Kersa Design"
+            className="h-14 mx-auto mb-2 object-contain"
+          />
+          <p className="text-gray-500 text-xs mt-1 tracking-widest uppercase">Cotizador Online</p>
         </div>
 
         {/* Card */}
@@ -131,10 +133,11 @@ export default function Cotizador() {
               <button
                 onClick={siguiente}
                 disabled={!puedeAvanzar() || enviando}
+                style={puedeAvanzar() && !enviando ? { backgroundColor: '#134a9c' } : {}}
                 className={cn(
                   'flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all',
                   puedeAvanzar() && !enviando
-                    ? 'bg-blue-500 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+                    ? 'text-white shadow-md hover:shadow-lg'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 )}
               >
