@@ -88,7 +88,7 @@ export const COLORES_VINIL: { id: string; nombre: string; hex?: string; imagen?:
   { id: 'vicent-bay',  nombre: 'Vicent Bay',  imagen: 'https://kersadesign.com/imagenes/embed_052_3b529724.jpg' },
 ]
 
-export const COLORES_COCINA = [
+export const COLORES_COCINA: { id: string; nombre: string; hex?: string; imagen?: string }[] = [
   { id: 'blanco-mate', nombre: 'Blanco Mate', hex: '#F8F8F5' },
   { id: 'gris-perla', nombre: 'Gris Perla', hex: '#D0CDC8' },
   { id: 'negro-mate', nombre: 'Negro Mate', hex: '#2C2C2C' },
