@@ -8,72 +8,18 @@ interface Props {
 }
 
 const CIUDADES_MUNICIPIOS: Record<string, string[]> = {
-  'Caracas': [
-    'Libertador', 'Chacao', 'Baruta', 'El Hatillo', 'Sucre'
+  'Caracas (Distrito Capital)': [
+    'Libertador',
   ],
   'Miranda': [
-    'Baruta', 'Chacao', 'El Hatillo', 'Sucre', 'Zamora', 'Guaicaipuro',
-    'Acevedo', 'Brión', 'Buroz', 'Cristóbal Rojas', 'Independencia',
-    'Lander', 'Los Salias', 'Páez', 'Paz Castillo', 'Pedro Gual',
-    'Urdaneta', 'Valles del Tuy'
+    'Baruta', 'Chacao', 'El Hatillo', 'Sucre', 'Zamora',
+    'Guaicaipuro', 'Acevedo', 'Brión', 'Buroz', 'Cristóbal Rojas',
+    'Independencia', 'Lander', 'Los Salias', 'Páez', 'Paz Castillo',
+    'Pedro Gual', 'Urdaneta',
   ],
-  'Aragua': [
-    'Girardot (Maracay)', 'Mario Briceño Iragorry', 'Libertador',
-    'Francisco Linares Alcántara', 'Santiago Mariño', 'Sucre',
-    'José Ángel Lamas', 'Ribas', 'San Casimiro', 'Tovar', 'Zamora'
+  'La Guaira (Vargas)': [
+    'Vargas',
   ],
-  'Carabobo': [
-    'Valencia', 'Libertador', 'San Diego', 'Naguanagua', 'Carlos Arvelo',
-    'Diego Ibarra', 'Guacara', 'Juan José Mora', 'Miranda', 'Montalbán',
-    'Puerto Cabello', 'Bejuma'
-  ],
-  'Zulia': [
-    'Maracaibo', 'San Francisco', 'Cabimas', 'Ciudad Ojeda', 'Lagunillas',
-    'Jesús Enrique Lossada', 'La Cañada de Urdaneta', 'Mara',
-    'Páez', 'Rosario de Perijá', 'Santa Rita', 'Simón Bolívar'
-  ],
-  'Lara': [
-    'Iribarren (Barquisimeto)', 'Jiménez', 'Morán', 'Palavecino',
-    'Simón Planas', 'Torres', 'Urdaneta'
-  ],
-  'Bolívar': [
-    'Caroní (Ciudad Guayana)', 'Heres (Ciudad Bolívar)', 'Angostura',
-    'Cedeño', 'El Callao', 'Gran Sabana', 'Piar', 'Raúl Leoni',
-    'Roscio', 'Sifontes', 'Sucre'
-  ],
-  'Táchira': [
-    'San Cristóbal', 'Torbes', 'Junín (Rubio)', 'Lobatera',
-    'Ayacucho (San Antonio)', 'Bolívar', 'Cárdenas', 'Fernández Feo',
-    'Francisco de Miranda', 'García de Hevia', 'Guásimos', 'Independencia',
-    'Jáuregui', 'Libertad', 'Michelena', 'Panamericano', 'Pedro María Ureña',
-    'Rafael Urdaneta', 'Samuel Darío Maldonado', 'Seboruco', 'Simón Rodríguez', 'Uribante'
-  ],
-  'Mérida': [
-    'Libertador (Mérida)', 'Alberto Adriani (El Vigía)', 'Andrés Bello',
-    'Antonio Pinto Salinas', 'Aricagua', 'Arzobispo Chacón', 'Campo Elías',
-    'Caracciolo Parra Olmedo', 'Cardenal Quintero', 'Guaraque',
-    'Julio César Salas', 'Justo Briceño', 'Miranda', 'Obispo Ramos de Lora',
-    'Padre Noguera', 'Pueblo Llano', 'Rangel', 'Rivas Dávila', 'Santos Marquina',
-    'Sucre', 'Tovar', 'Tulio Febres Cordero', 'Zea'
-  ],
-  'Anzoátegui': [
-    'Simón Bolívar (Barcelona)', 'Diego Bautista Urbaneja (Lechería)',
-    'Sotillo (Puerto La Cruz)', 'Anaco', 'Freites', 'Guanipa',
-    'Independencia', 'Juan Manuel Cajigal', 'Libertad', 'McGregor',
-    'Miranda', 'Monagas', 'Peñalver', 'Píritu', 'San Juan de Capistrano',
-    'Santa Ana', 'Simón Rodríguez'
-  ],
-  'Monagas': [
-    'Maturín', 'Acosta', 'Aguasay', 'Bolívar', 'Caripe',
-    'Cedeño', 'Ezequiel Zamora', 'Libertador', 'Piar',
-    'Punceres', 'Santa Bárbara', 'Sotillo', 'Uracoa'
-  ],
-  'Nueva Esparta': [
-    'Arismendi (La Asunción)', 'Antolín del Campo', 'García',
-    'Gómez', 'Macanao', 'Maneiro', 'Marcano', 'Península de Macanao',
-    'Tubores', 'Villalba'
-  ],
-  'Otra ciudad': ['Otro municipio'],
 }
 
 const CIUDADES = Object.keys(CIUDADES_MUNICIPIOS)
@@ -144,7 +90,7 @@ export default function PasoDatos({ datos, onChange }: Props) {
               onChange={(e) => handleCiudadChange(e.target.value)}
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none bg-white"
             >
-              <option value="">Selecciona tu estado</option>
+              <option value="">Selecciona tu estado / ciudad</option>
               {CIUDADES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
