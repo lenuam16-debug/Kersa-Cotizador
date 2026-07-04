@@ -103,31 +103,49 @@ export default function Visualizador() {
     }
     maskCtx.putImageData(maskData, 0, 0)
 
-    // Canvas de textura tileada
+    // Proporciones reales lámina LVT: 1.22m × 0.23m → ratio 5.3:1
+    // Estimando sala de ~3.5m de ancho → escala ≈ W/3.5 px/m
+    const PLANK_RATIO = 1.22 / 0.23  // ≈ 5.3
+    const plankH = Math.round(W * 0.065) // ~58px = 0.23m en sala de 3.5m
+    const plankW = Math.round(plankH * PLANK_RATIO) // ~308px = 1.22m
+    const GAP = 2 // junta entre láminas en px
+
+    // Canvas de una lámina individual con la textura del producto
+    const plankCanvas = document.createElement('canvas')
+    plankCanvas.width = plankW; plankCanvas.height = plankH
+    const pCtx = plankCanvas.getContext('2d')!
+    pCtx.drawImage(textureImg, 0, 0, plankW, plankH)
+
+    // Tilear láminas con patrón alterno (filas desplazadas plankW/2)
     const texCanvas = document.createElement('canvas')
-    texCanvas.width = W
-    texCanvas.height = H
+    texCanvas.width = W; texCanvas.height = H
     const tCtx = texCanvas.getContext('2d')!
 
-    // Tile size: cada tablón ocupa ~18% del ancho de la imagen
-    const tileSize = Math.round(W * 0.18)
-    const pattern = tCtx.createPattern(textureImg, 'repeat')!
-    const scale = tileSize / Math.max(textureImg.naturalWidth, textureImg.naturalHeight)
-    pattern.setTransform(new DOMMatrix().scale(scale))
-    tCtx.fillStyle = pattern
-    tCtx.fillRect(0, 0, W, H)
+    for (let row = -1; row * (plankH + GAP) < H + plankH; row++) {
+      const y = row * (plankH + GAP)
+      const offsetX = (row % 2 === 0) ? 0 : -(plankW / 2)
+      for (let col = -1; col * (plankW + GAP) + offsetX < W + plankW; col++) {
+        const x = col * (plankW + GAP) + offsetX
+        tCtx.drawImage(plankCanvas, Math.round(x), Math.round(y), plankW, plankH)
+      }
+    }
+
+    // Juntas entre láminas
+    tCtx.fillStyle = 'rgba(130,120,110,0.5)'
+    for (let row = 0; row * (plankH + GAP) < H + GAP; row++) {
+      tCtx.fillRect(0, row * (plankH + GAP) + plankH, W, GAP)
+    }
 
     // Recortar al área del suelo usando la máscara con alpha correcto
     tCtx.globalCompositeOperation = 'destination-in'
     tCtx.drawImage(maskCanvas, 0, 0, W, H)
 
-    // Reemplazar el suelo con la textura del producto al 80%
-    // — preserva el 20% del suelo original para mantener algo de iluminación
+    // Cobertura total: reemplaza completamente el suelo existente
     ctx.globalCompositeOperation = 'source-over'
-    ctx.globalAlpha = 0.82
+    ctx.globalAlpha = 1.0
     ctx.drawImage(texCanvas, 0, 0)
 
-    // Capa de luminosidad del original encima para que la textura tome las sombras reales del suelo
+    // Restaurar la iluminación/sombras del suelo original encima
     const lumCanvas = document.createElement('canvas')
     lumCanvas.width = W; lumCanvas.height = H
     const lCtx = lumCanvas.getContext('2d')!
@@ -136,7 +154,7 @@ export default function Visualizador() {
     lCtx.drawImage(maskCanvas, 0, 0, W, H)
 
     ctx.globalCompositeOperation = 'luminosity'
-    ctx.globalAlpha = 0.28
+    ctx.globalAlpha = 0.32
     ctx.drawImage(lumCanvas, 0, 0)
 
     ctx.globalAlpha = 1
