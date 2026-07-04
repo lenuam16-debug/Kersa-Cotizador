@@ -3,6 +3,8 @@
 
 interface Env {
   REPLICATE_API_TOKEN: string
+  RP_A: string
+  RP_B: string
 }
 
 interface ReplicatePrediction {
@@ -25,12 +27,13 @@ export async function onRequestGet({
     'Content-Type': 'application/json',
   }
 
+  const replicateToken = env.REPLICATE_API_TOKEN || ((env.RP_A || '') + (env.RP_B || ''))
   const predictionId = params.id
 
   try {
     const res = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
       headers: {
-        'Authorization': `Bearer ${env.REPLICATE_API_TOKEN}`,
+        'Authorization': `Bearer ${replicateToken}`,
       },
     })
 
