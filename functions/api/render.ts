@@ -64,10 +64,32 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
       )
     }
 
-    const body = await request.json() as { dataUri?: string; servicio?: string; color?: string }
-    const dataUri = body.dataUri
-    const servicio = body.servicio || 'vinil-lvt'
-    const colorId = body.color || ''
+    const contentType = request.headers.get('content-type') || ''
+    let dataUri: string | undefined
+    let servicio = 'vinil-lvt'
+    let colorId = ''
+
+    if (contentType.includes('application/json')) {
+      const body = await request.json() as { dataUri?: string; servicio?: string; color?: string }
+      dataUri = body.dataUri
+      servicio = body.servicio || 'vinil-lvt'
+      colorId = body.color || ''
+    } else {
+      // Fallback: multipart form-data con imagen binaria
+      const formData = await request.formData()
+      const imagen = formData.get('imagen') as File | null
+      servicio = (formData.get('servicio') as string) || 'vinil-lvt'
+      colorId = (formData.get('color') as string) || ''
+      if (imagen) {
+        const buffer = await imagen.arrayBuffer()
+        const bytes = new Uint8Array(buffer)
+        let bin = ''
+        for (let i = 0; i < bytes.byteLength; i += 8192) {
+          bin += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.byteLength)))
+        }
+        dataUri = `data:${imagen.type || 'image/jpeg'};base64,${btoa(bin)}`
+      }
+    }
 
     if (!dataUri) {
       return new Response(JSON.stringify({ error: 'No se recibió imagen' }), { status: 400, headers: corsHeaders })
