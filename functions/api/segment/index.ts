@@ -11,13 +11,15 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
   try {
     const { dataUri } = await request.json() as { dataUri: string }
 
-    const res = await fetch('https://api.replicate.com/v1/models/schananas/grounded_sam/predictions', {
+    const res = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${replicateToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        version: 'ee871c19efb1941f55f66a3d7d960428c8a5afcb77449547fe8e5a3ab9ebc21c',
         input: {
           image: dataUri,
-          det_prompt: 'floor. flooring. wood floor. tile floor.',
+          mask_prompt: 'floor, flooring, wood floor, tile floor, ground',
+          negative_mask_prompt: 'wall, ceiling, furniture, sofa, chair, table, door, window',
         },
       }),
     })
