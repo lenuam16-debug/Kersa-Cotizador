@@ -105,16 +105,23 @@ export default function Visualizador() {
     tCtx.globalCompositeOperation = 'destination-in'
     tCtx.drawImage(maskImg, 0, 0, W, H)
 
-    // 1. Blend 'color': cambia el tono del suelo al color del producto
-    //    preservando la luminosidad (sombras, iluminación) del original
-    ctx.globalCompositeOperation = 'color'
-    ctx.globalAlpha = 0.9
+    // Reemplazar el suelo con la textura del producto al 80%
+    // — preserva el 20% del suelo original para mantener algo de iluminación
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = 0.82
     ctx.drawImage(texCanvas, 0, 0)
 
-    // 2. Blend 'overlay' al 35%: añade la textura/veta del material
-    ctx.globalCompositeOperation = 'overlay'
-    ctx.globalAlpha = 0.35
-    ctx.drawImage(texCanvas, 0, 0)
+    // Capa de luminosidad del original encima para que la textura tome las sombras reales del suelo
+    const lumCanvas = document.createElement('canvas')
+    lumCanvas.width = W; lumCanvas.height = H
+    const lCtx = lumCanvas.getContext('2d')!
+    lCtx.drawImage(roomImg, 0, 0, W, H)
+    lCtx.globalCompositeOperation = 'destination-in'
+    lCtx.drawImage(maskImg, 0, 0, W, H)
+
+    ctx.globalCompositeOperation = 'luminosity'
+    ctx.globalAlpha = 0.28
+    ctx.drawImage(lumCanvas, 0, 0)
 
     ctx.globalAlpha = 1
     ctx.globalCompositeOperation = 'source-over'
