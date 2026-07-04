@@ -155,24 +155,43 @@ export default function Visualizador() {
     ctx.globalAlpha = 1.0
     ctx.drawImage(texCanvas, 0, 0)
 
-    // Capa de sombras/iluminación del cuarto — solo usamos la parte oscura del suelo original
-    // para preservar perspectiva y sombras de muebles sin aclarar el color del material
-    const lumCanvas = document.createElement('canvas')
-    lumCanvas.width = W; lumCanvas.height = H
-    const lCtx = lumCanvas.getContext('2d')!
-    lCtx.drawImage(roomImg, 0, 0, W, H)
-    lCtx.globalCompositeOperation = 'destination-in'
-    lCtx.drawImage(maskCanvas, 0, 0, W, H)
+    // Extraer solo las sombras del suelo original (píxeles más oscuros que el promedio)
+    // para conservar sombras de muebles y perspectiva, sin que el color del piso base sangre
+    const shadowCanvas = document.createElement('canvas')
+    shadowCanvas.width = W; shadowCanvas.height = H
+    const sCtx = shadowCanvas.getContext('2d')!
+    sCtx.drawImage(roomImg, 0, 0, W, H)
 
-    // multiply: oscurece donde el suelo original era oscuro (sombras de muebles)
-    ctx.globalCompositeOperation = 'multiply'
-    ctx.globalAlpha = 0.45
-    ctx.drawImage(lumCanvas, 0, 0)
+    // Calcular luminancia media del área del suelo para usarla como umbral
+    const floorData = sCtx.getImageData(0, 0, W, H)
+    const maskDataCheck = maskCtx.getImageData(0, 0, W, H)
+    let sumLum = 0, countPx = 0
+    for (let i = 0; i < floorData.data.length; i += 4) {
+      if (maskDataCheck.data[i + 3] > 128) {
+        sumLum += floorData.data[i] * 0.299 + floorData.data[i + 1] * 0.587 + floorData.data[i + 2] * 0.114
+        countPx++
+      }
+    }
+    const avgLum = countPx > 0 ? sumLum / countPx : 128
 
-    // luminosity muy bajo: solo añade los gradientes de luz sin mezclar el color base
-    ctx.globalCompositeOperation = 'luminosity'
-    ctx.globalAlpha = 0.12
-    ctx.drawImage(lumCanvas, 0, 0)
+    // Construir mapa de sombras: solo píxeles más oscuros que el promedio
+    const shadowData = sCtx.getImageData(0, 0, W, H)
+    for (let i = 0; i < shadowData.data.length; i += 4) {
+      const lum = shadowData.data[i] * 0.299 + shadowData.data[i + 1] * 0.587 + shadowData.data[i + 2] * 0.114
+      const maskAlpha = maskDataCheck.data[i + 3]
+      // Solo donde hay suelo y el píxel es más oscuro que el promedio (sombras)
+      const shadowStrength = maskAlpha > 128 ? Math.max(0, (avgLum - lum) / avgLum) : 0
+      shadowData.data[i] = 0
+      shadowData.data[i + 1] = 0
+      shadowData.data[i + 2] = 0
+      shadowData.data[i + 3] = Math.round(shadowStrength * 180) // max 70% opacidad de sombra
+    }
+    sCtx.putImageData(shadowData, 0, 0)
+
+    // Pintar sombras encima de la textura
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = 0.6
+    ctx.drawImage(shadowCanvas, 0, 0)
 
     ctx.globalAlpha = 1
     ctx.globalCompositeOperation = 'source-over'
