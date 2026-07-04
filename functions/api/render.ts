@@ -91,7 +91,6 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
       headers: {
         'Authorization': `Bearer ${replicateToken}`,
         'Content-Type': 'application/json',
-        'Prefer': 'wait',
       },
       body: JSON.stringify({
         version: '76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38',
