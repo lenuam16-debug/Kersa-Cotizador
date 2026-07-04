@@ -104,36 +104,46 @@ export default function Visualizador() {
     maskCtx.putImageData(maskData, 0, 0)
 
     // Proporciones reales lámina LVT: 1.22m × 0.23m → ratio 5.3:1
-    // Estimando sala de ~3.5m de ancho → escala ≈ W/3.5 px/m
     const PLANK_RATIO = 1.22 / 0.23  // ≈ 5.3
-    const plankH = Math.round(W * 0.065) // ~58px = 0.23m en sala de 3.5m
-    const plankW = Math.round(plankH * PLANK_RATIO) // ~308px = 1.22m
-    const GAP = 2 // junta entre láminas en px
+    const plankH = Math.round(W * 0.065)
+    const plankW = Math.round(plankH * PLANK_RATIO)
 
-    // Canvas de una lámina individual con la textura del producto
-    const plankCanvas = document.createElement('canvas')
-    plankCanvas.width = plankW; plankCanvas.height = plankH
-    const pCtx = plankCanvas.getContext('2d')!
-    pCtx.drawImage(textureImg, 0, 0, plankW, plankH)
-
-    // Tilear láminas con patrón alterno (filas desplazadas plankW/2)
+    // Tilear láminas con patrón alterno sin GAP visible (LVT se instala sin junta)
     const texCanvas = document.createElement('canvas')
     texCanvas.width = W; texCanvas.height = H
     const tCtx = texCanvas.getContext('2d')!
 
-    for (let row = -1; row * (plankH + GAP) < H + plankH; row++) {
-      const y = row * (plankH + GAP)
-      const offsetX = (row % 2 === 0) ? 0 : -(plankW / 2)
-      for (let col = -1; col * (plankW + GAP) + offsetX < W + plankW; col++) {
-        const x = col * (plankW + GAP) + offsetX
-        tCtx.drawImage(plankCanvas, Math.round(x), Math.round(y), plankW, plankH)
-      }
+    // Precalcular variaciones de brillo por fila (simula vetas distintas entre láminas)
+    const rowBrightness: number[] = []
+    const totalRows = Math.ceil(H / plankH) + 2
+    for (let i = 0; i < totalRows; i++) {
+      rowBrightness.push((Math.random() - 0.5) * 0.08) // ±4% brillo
     }
 
-    // Juntas entre láminas
-    tCtx.fillStyle = 'rgba(130,120,110,0.5)'
-    for (let row = 0; row * (plankH + GAP) < H + GAP; row++) {
-      tCtx.fillRect(0, row * (plankH + GAP) + plankH, W, GAP)
+    for (let row = -1; row * plankH < H + plankH; row++) {
+      const y = row * plankH
+      const offsetX = (row % 2 === 0) ? 0 : -(plankW / 2)
+      const rowIdx = row + 1
+
+      for (let col = -1; col * plankW + offsetX < W + plankW; col++) {
+        const x = col * plankW + offsetX
+
+        // Lámina base
+        tCtx.drawImage(textureImg, Math.round(x), Math.round(y), plankW, plankH)
+
+        // Variación sutil de brillo por lámina (diferente columna = diferente offset)
+        const bright = rowBrightness[rowIdx] + (Math.random() - 0.5) * 0.04
+        if (bright > 0) {
+          tCtx.fillStyle = `rgba(255,255,255,${bright})`
+        } else {
+          tCtx.fillStyle = `rgba(0,0,0,${Math.abs(bright)})`
+        }
+        tCtx.fillRect(Math.round(x), Math.round(y), plankW, plankH)
+      }
+
+      // Micro-bisel: sombra de 1px al borde inferior de cada fila (simula unión LVT)
+      tCtx.fillStyle = 'rgba(0,0,0,0.12)'
+      tCtx.fillRect(0, Math.round(y) + plankH - 1, W, 1)
     }
 
     // Recortar al área del suelo usando la máscara con alpha correcto
