@@ -36,9 +36,9 @@ export default function Visualizador() {
   const colores = getColores(servicio)
   const infoServicio = SERVICIOS[servicio]
 
-  const comprimirImagen = (file: File): Promise<File> => {
+  const imagenADataUri = (file: File): Promise<string> => {
     return new Promise((resolve) => {
-      const MAX_SIZE = 1024
+      const MAX_SIZE = 900
       const img = new Image()
       const url = URL.createObjectURL(file)
       img.onload = () => {
@@ -49,12 +49,14 @@ export default function Visualizador() {
         canvas.height = Math.round(img.height * ratio)
         const ctx = canvas.getContext('2d')!
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        canvas.toBlob(blob => {
-          if (!blob) return resolve(file)
-          resolve(new File([blob], 'imagen.jpg', { type: 'image/jpeg' }))
-        }, 'image/jpeg', 0.82)
+        resolve(canvas.toDataURL('image/jpeg', 0.75))
       }
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.readAsDataURL(file)
+      }
       img.src = url
     })
   }
@@ -80,14 +82,12 @@ export default function Visualizador() {
     setProgreso(10)
 
     try {
-      const imagenComprimida = await comprimirImagen(imagen)
-      const fd = new FormData()
-      fd.append('imagen', imagenComprimida)
-      fd.append('servicio', servicio)
-      if (colorId) fd.append('color', colorId)
-      if (cotizacionId) fd.append('cotizacion_id', cotizacionId)
-
-      const res = await fetch('/api/render', { method: 'POST', body: fd })
+      const dataUri = await imagenADataUri(imagen)
+      const res = await fetch('/api/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataUri, servicio, color: colorId, cotizacion_id: cotizacionId }),
+      })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error((data as { error?: string }).error || 'Error iniciando render')

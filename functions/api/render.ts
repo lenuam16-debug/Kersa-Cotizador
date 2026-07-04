@@ -64,25 +64,14 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
       )
     }
 
-    const formData = await request.formData()
-    const imagen = formData.get('imagen') as File | null
-    const servicio = (formData.get('servicio') as string) || 'vinil-lvt'
-    const colorId = (formData.get('color') as string) || ''
+    const body = await request.json() as { dataUri?: string; servicio?: string; color?: string }
+    const dataUri = body.dataUri
+    const servicio = body.servicio || 'vinil-lvt'
+    const colorId = body.color || ''
 
-    if (!imagen) {
+    if (!dataUri) {
       return new Response(JSON.stringify({ error: 'No se recibió imagen' }), { status: 400, headers: corsHeaders })
     }
-
-    // Convertir imagen a base64 data URI
-    const buffer = await imagen.arrayBuffer()
-    const bytes = new Uint8Array(buffer)
-    let binary = ''
-    const chunkSize = 8192
-    for (let i = 0; i < bytes.byteLength; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
-    }
-    const base64 = btoa(binary)
-    const dataUri = `data:${imagen.type || 'image/jpeg'};base64,${base64}`
 
     const prompt = buildPrompt(servicio, colorId)
 
@@ -129,7 +118,7 @@ export async function onRequestOptions() {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   })
 }
