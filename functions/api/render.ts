@@ -74,7 +74,6 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
     }
 
     // Subir imagen a Replicate Files para obtener una URL pública
-    const buffer = await imagen.arrayBuffer()
     const uploadRes = await fetch('https://api.replicate.com/v1/files', {
       method: 'POST',
       headers: {
@@ -82,7 +81,7 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
         'Content-Type': imagen.type || 'image/jpeg',
         'Content-Disposition': `attachment; filename="image.jpg"`,
       },
-      body: buffer,
+      body: imagen,
     })
 
     if (!uploadRes.ok) {
