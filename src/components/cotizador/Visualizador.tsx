@@ -87,6 +87,22 @@ export default function Visualizador() {
     const ctx = canvas.getContext('2d')!
     ctx.drawImage(roomImg, 0, 0, W, H)
 
+    // Convertir máscara JPEG (blanco/negro) a canal alpha
+    // — los JPEGs no tienen alpha, hay que usar la luminancia como máscara
+    const maskCanvas = document.createElement('canvas')
+    maskCanvas.width = W; maskCanvas.height = H
+    const maskCtx = maskCanvas.getContext('2d')!
+    maskCtx.drawImage(maskImg, 0, 0, W, H)
+    const maskData = maskCtx.getImageData(0, 0, W, H)
+    for (let i = 0; i < maskData.data.length; i += 4) {
+      const lum = maskData.data[i] * 0.299 + maskData.data[i + 1] * 0.587 + maskData.data[i + 2] * 0.114
+      maskData.data[i] = 0
+      maskData.data[i + 1] = 0
+      maskData.data[i + 2] = 0
+      maskData.data[i + 3] = lum // blanco → opaco, negro → transparente
+    }
+    maskCtx.putImageData(maskData, 0, 0)
+
     // Canvas de textura tileada
     const texCanvas = document.createElement('canvas')
     texCanvas.width = W
@@ -101,9 +117,9 @@ export default function Visualizador() {
     tCtx.fillStyle = pattern
     tCtx.fillRect(0, 0, W, H)
 
-    // Recortar al área del suelo con la máscara de SAM
+    // Recortar al área del suelo usando la máscara con alpha correcto
     tCtx.globalCompositeOperation = 'destination-in'
-    tCtx.drawImage(maskImg, 0, 0, W, H)
+    tCtx.drawImage(maskCanvas, 0, 0, W, H)
 
     // Reemplazar el suelo con la textura del producto al 80%
     // — preserva el 20% del suelo original para mantener algo de iluminación
@@ -117,7 +133,7 @@ export default function Visualizador() {
     const lCtx = lumCanvas.getContext('2d')!
     lCtx.drawImage(roomImg, 0, 0, W, H)
     lCtx.globalCompositeOperation = 'destination-in'
-    lCtx.drawImage(maskImg, 0, 0, W, H)
+    lCtx.drawImage(maskCanvas, 0, 0, W, H)
 
     ctx.globalCompositeOperation = 'luminosity'
     ctx.globalAlpha = 0.28
