@@ -87,34 +87,35 @@ export default function Visualizador() {
     const ctx = canvas.getContext('2d')!
     ctx.drawImage(roomImg, 0, 0, W, H)
 
-    // Canvas de textura tileada con perspectiva suave
+    // Canvas de textura tileada
     const texCanvas = document.createElement('canvas')
     texCanvas.width = W
     texCanvas.height = H
     const tCtx = texCanvas.getContext('2d')!
 
-    // Escala de textura: ~200px por tile (ajustable)
-    const tileSize = Math.round(Math.min(W, H) * 0.28)
+    // Tile size: cada tablón ocupa ~18% del ancho de la imagen
+    const tileSize = Math.round(W * 0.18)
     const pattern = tCtx.createPattern(textureImg, 'repeat')!
-    // Escalar el patrón al tamaño de tile deseado
     const scale = tileSize / Math.max(textureImg.naturalWidth, textureImg.naturalHeight)
-    const m = new DOMMatrix().scale(scale)
-    pattern.setTransform(m)
+    pattern.setTransform(new DOMMatrix().scale(scale))
     tCtx.fillStyle = pattern
     tCtx.fillRect(0, 0, W, H)
 
-    // Recortar textura al área del suelo usando la máscara
+    // Recortar al área del suelo con la máscara de SAM
     tCtx.globalCompositeOperation = 'destination-in'
     tCtx.drawImage(maskImg, 0, 0, W, H)
 
-    // Aplicar textura sobre la habitación con blend 'multiply' (preserva iluminación)
-    ctx.globalCompositeOperation = 'multiply'
+    // 1. Blend 'color': cambia el tono del suelo al color del producto
+    //    preservando la luminosidad (sombras, iluminación) del original
+    ctx.globalCompositeOperation = 'color'
+    ctx.globalAlpha = 0.9
     ctx.drawImage(texCanvas, 0, 0)
 
-    // Segunda capa en 'screen' al 20% para recuperar luminosidad en zonas oscuras
-    ctx.globalCompositeOperation = 'screen'
-    ctx.globalAlpha = 0.18
+    // 2. Blend 'overlay' al 35%: añade la textura/veta del material
+    ctx.globalCompositeOperation = 'overlay'
+    ctx.globalAlpha = 0.35
     ctx.drawImage(texCanvas, 0, 0)
+
     ctx.globalAlpha = 1
     ctx.globalCompositeOperation = 'source-over'
 

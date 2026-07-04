@@ -18,8 +18,9 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
         version: 'ee871c19efb1941f55f66a3d7d960428c8a5afcb77449547fe8e5a3ab9ebc21c',
         input: {
           image: dataUri,
-          mask_prompt: 'floor, flooring, wood floor, tile floor, ground',
-          negative_mask_prompt: 'wall, ceiling, furniture, sofa, chair, table, door, window',
+          mask_prompt: 'floor, flooring, wood floor, tile floor, ground, floor surface',
+          negative_mask_prompt: 'wall, ceiling, furniture, sofa, chair, table, door, window, baseboard, skirting, curtain, rug, person',
+          adjustment_factor: -8,
         },
       }),
     })
