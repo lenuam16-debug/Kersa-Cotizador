@@ -98,7 +98,7 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
       const errText = await replicateRes.text()
       const headers: Record<string, string> = {}
       replicateRes.headers.forEach((v, k) => { headers[k] = v })
-      throw new Error(`Replicate ${replicateRes.status}: ${errText} | base64len=${base64.length} | headers=${JSON.stringify(headers)}`)
+      throw new Error(`Replicate ${replicateRes.status}: ${errText} | headers=${JSON.stringify(headers)}`)
     }
 
     const prediction = await replicateRes.json() as { id: string; status: string }
