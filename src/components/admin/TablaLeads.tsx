@@ -5,7 +5,11 @@ import { Cotizacion, EstadoSeguimiento } from '@/types'
 import { SERVICIOS } from '@/lib/pricing'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { Search, Filter, Phone, Mail, RefreshCw } from 'lucide-react'
+import { Search, Phone, Mail, RefreshCw } from 'lucide-react'
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://awscrogqprosivmtgkio.supabase.co'
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c2Nyb2dxcHJvc2l2bXRna2lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjQ1NDIsImV4cCI6MjA5NzkwMDU0Mn0.WcYei2z8UGNCTQaWKSTNeWEJByWKTNqHyyCrwcPPnTQ'
+const HEADERS = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' }
 
 const ESTADOS: { valor: EstadoSeguimiento; label: string; color: string }[] = [
   { valor: 'nuevo', label: 'Nuevo', color: 'bg-blue-100 text-blue-700' },
@@ -27,12 +31,21 @@ export default function TablaLeads() {
   const cargar = async () => {
     setCargando(true)
     const params = new URLSearchParams()
-    if (filtroEstado) params.set('estado', filtroEstado)
-    if (filtroServicio) params.set('servicio', filtroServicio)
-    if (buscar) params.set('q', buscar)
+    params.set('select', '*,lead:leads(*)')
+    params.set('order', 'created_at.desc')
+    if (filtroEstado) params.set('estado', `eq.${filtroEstado}`)
+    if (filtroServicio) params.set('servicio', `eq.${filtroServicio}`)
 
-    const res = await fetch(`/api/leads?${params}`)
-    const data = await res.json()
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/cotizaciones?${params}`, { headers: HEADERS })
+    let data = await res.json()
+    if (buscar) {
+      const q = buscar.toLowerCase()
+      data = data.filter((c: Cotizacion) =>
+        c.lead?.name?.toLowerCase().includes(q) ||
+        c.lead?.email?.toLowerCase().includes(q) ||
+        c.lead?.telefono?.includes(q)
+      )
+    }
     setCotizaciones(data)
     setCargando(false)
   }
@@ -43,9 +56,9 @@ export default function TablaLeads() {
 
   const actualizarEstado = async (id: string, estado: EstadoSeguimiento, notas?: string) => {
     setGuardando(true)
-    await fetch(`/api/leads/${id}`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/cotizaciones?id=eq.${id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...HEADERS, 'Prefer': 'return=representation' },
       body: JSON.stringify({ estado, notas_admin: notas }),
     })
     await cargar()

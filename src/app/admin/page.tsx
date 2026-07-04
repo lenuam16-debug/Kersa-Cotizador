@@ -1,26 +1,35 @@
-﻿import TablaLeads from '@/components/admin/TablaLeads'
-import { supabaseAdmin } from '@/lib/supabase'
-import { Users, FileText, TrendingUp, Clock } from 'lucide-react'
+'use client'
 
-async function getStats() {
-  const [leadsRes, cotizacionesRes, nuevasRes] = await Promise.all([
-    supabaseAdmin.from('leads').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('cotizaciones').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('estado', 'nuevo'),
-  ])
-  return {
-    totalLeads: leadsRes.count ?? 0,
-    totalCotizaciones: cotizacionesRes.count ?? 0,
-    nuevas: nuevasRes.count ?? 0,
-  }
+import { useState, useEffect } from 'react'
+import TablaLeads from '@/components/admin/TablaLeads'
+import { Users, FileText, Clock } from 'lucide-react'
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://awscrogqprosivmtgkio.supabase.co'
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c2Nyb2dxcHJvc2l2bXRna2lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjQ1NDIsImV4cCI6MjA5NzkwMDU0Mn0.WcYei2z8UGNCTQaWKSTNeWEJByWKTNqHyyCrwcPPnTQ'
+
+const HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
 }
 
-export default async function AdminPage() {
-  const stats = await getStats()
+export default function AdminPage() {
+  const [stats, setStats] = useState({ totalLeads: 0, totalCotizaciones: 0, nuevas: 0 })
+
+  useEffect(() => {
+    const load = async () => {
+      const [l, c, n] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/leads?select=id`, { headers: { ...HEADERS, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-0' } }),
+        fetch(`${SUPABASE_URL}/rest/v1/cotizaciones?select=id`, { headers: { ...HEADERS, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-0' } }),
+        fetch(`${SUPABASE_URL}/rest/v1/cotizaciones?select=id&estado=eq.nuevo`, { headers: { ...HEADERS, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-0' } }),
+      ])
+      const getCount = (res: Response) => parseInt(res.headers.get('Content-Range')?.split('/')[1] ?? '0')
+      setStats({ totalLeads: getCount(l), totalCotizaciones: getCount(c), nuevas: getCount(n) })
+    }
+    load()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
@@ -40,7 +49,6 @@ export default async function AdminPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
             <div className="bg-blue-100 p-3 rounded-xl">
@@ -51,7 +59,6 @@ export default async function AdminPage() {
               <p className="text-3xl font-bold text-gray-800">{stats.totalLeads}</p>
             </div>
           </div>
-
           <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
             <div className="bg-blue-100 p-3 rounded-xl">
               <FileText className="w-6 h-6 text-blue-700" />
@@ -61,7 +68,6 @@ export default async function AdminPage() {
               <p className="text-3xl font-bold text-gray-800">{stats.totalCotizaciones}</p>
             </div>
           </div>
-
           <div className="bg-white rounded-2xl border border-gray-200 p-5 flex items-center gap-4">
             <div className="bg-red-100 p-3 rounded-xl">
               <Clock className="w-6 h-6 text-red-500" />
@@ -73,11 +79,9 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        {/* Tabla */}
         <h2 className="text-lg font-bold text-gray-700 mb-4">Cotizaciones y seguimiento</h2>
         <TablaLeads />
       </div>
     </div>
   )
 }
-
