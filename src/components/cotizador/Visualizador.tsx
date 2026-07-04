@@ -155,7 +155,8 @@ export default function Visualizador() {
     ctx.globalAlpha = 1.0
     ctx.drawImage(texCanvas, 0, 0)
 
-    // Restaurar la iluminación/sombras del suelo original encima
+    // Capa de sombras/iluminación del cuarto — solo usamos la parte oscura del suelo original
+    // para preservar perspectiva y sombras de muebles sin aclarar el color del material
     const lumCanvas = document.createElement('canvas')
     lumCanvas.width = W; lumCanvas.height = H
     const lCtx = lumCanvas.getContext('2d')!
@@ -163,8 +164,14 @@ export default function Visualizador() {
     lCtx.globalCompositeOperation = 'destination-in'
     lCtx.drawImage(maskCanvas, 0, 0, W, H)
 
+    // multiply: oscurece donde el suelo original era oscuro (sombras de muebles)
+    ctx.globalCompositeOperation = 'multiply'
+    ctx.globalAlpha = 0.45
+    ctx.drawImage(lumCanvas, 0, 0)
+
+    // luminosity muy bajo: solo añade los gradientes de luz sin mezclar el color base
     ctx.globalCompositeOperation = 'luminosity'
-    ctx.globalAlpha = 0.32
+    ctx.globalAlpha = 0.12
     ctx.drawImage(lumCanvas, 0, 0)
 
     ctx.globalAlpha = 1
