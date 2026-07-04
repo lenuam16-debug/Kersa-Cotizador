@@ -37,9 +37,9 @@ export async function onRequestGet({
       // o un objeto con mask/segmented_images según la versión
       let maskUrl: string | null = null
       if (Array.isArray(prediction.output)) {
-        // El primer elemento es la imagen anotada, el resto son máscaras individuales
-        // Buscamos la primera URL que parezca una máscara (PNG con fondo negro)
-        maskUrl = prediction.output[1] || prediction.output[0] || null
+        // schananas/grounded_sam output: [annotated, neg_annotated, mask, inverted_mask]
+        // output[2] es la máscara limpia blanco/negro que necesitamos para el canvas
+        maskUrl = prediction.output[2] || prediction.output[0] || null
       } else if (prediction.output && typeof prediction.output === 'object') {
         const out = prediction.output as { mask?: string; segmented_images?: string[] }
         maskUrl = out.mask || out.segmented_images?.[0] || null
