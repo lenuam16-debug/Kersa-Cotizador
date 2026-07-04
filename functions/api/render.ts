@@ -84,8 +84,8 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
         const buffer = await imagen.arrayBuffer()
         const bytes = new Uint8Array(buffer)
         let bin = ''
-        for (let i = 0; i < bytes.byteLength; i += 8192) {
-          bin += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, bytes.byteLength)))
+        for (let i = 0; i < bytes.byteLength; i++) {
+          bin += String.fromCharCode(bytes[i])
         }
         dataUri = `data:${imagen.type || 'image/jpeg'};base64,${btoa(bin)}`
       }
