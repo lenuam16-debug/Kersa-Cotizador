@@ -86,20 +86,22 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
 
     const prompt = buildPrompt(servicio, colorId)
 
-    const replicateRes = await fetch('https://api.replicate.com/v1/models/adirik/interior-design/predictions', {
+    const replicateRes = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${replicateToken}`,
         'Content-Type': 'application/json',
+        'Prefer': 'wait',
       },
       body: JSON.stringify({
+        version: '76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38',
         input: {
           image: dataUri,
           prompt,
           guidance_scale: 15,
           negative_prompt: 'lowres, watermark, banner, logo, deformed, blurry, out of focus, ugly, unrealistic, cartoon',
           num_inference_steps: 50,
-          strength: 0.8,
+          prompt_strength: 0.8,
         },
       }),
     })
