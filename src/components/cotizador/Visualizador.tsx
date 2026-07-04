@@ -36,6 +36,29 @@ export default function Visualizador() {
   const colores = getColores(servicio)
   const infoServicio = SERVICIOS[servicio]
 
+  const comprimirImagen = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const MAX_SIZE = 1024
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const ratio = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob(blob => {
+          if (!blob) return resolve(file)
+          resolve(new File([blob], 'imagen.jpg', { type: 'image/jpeg' }))
+        }, 'image/jpeg', 0.82)
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+      img.src = url
+    })
+  }
+
   const handleImagen = useCallback((file: File) => {
     setImagen(file)
     setRenderUrl(null)
@@ -57,8 +80,9 @@ export default function Visualizador() {
     setProgreso(10)
 
     try {
+      const imagenComprimida = await comprimirImagen(imagen)
       const fd = new FormData()
-      fd.append('imagen', imagen)
+      fd.append('imagen', imagenComprimida)
       fd.append('servicio', servicio)
       if (colorId) fd.append('color', colorId)
       if (cotizacionId) fd.append('cotizacion_id', cotizacionId)
