@@ -45,55 +45,80 @@ export default function Visualizador() {
       img.src = src
     })
 
-  const imagenADataUri = (file: File, materialUrl?: string): Promise<string> => {
-    return new Promise((resolve) => {
+  const imagenADataUri = (file: File): Promise<string> =>
+    new Promise((resolve) => {
       const MAX_SIZE = 900
-      const roomImg = new Image()
+      const img = new Image()
       const url = URL.createObjectURL(file)
-      roomImg.onload = async () => {
+      img.onload = () => {
         URL.revokeObjectURL(url)
-        const ratio = Math.min(MAX_SIZE / roomImg.width, MAX_SIZE / roomImg.height, 1)
+        const ratio = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height, 1)
         const canvas = document.createElement('canvas')
-        canvas.width = Math.round(roomImg.width * ratio)
-        canvas.height = Math.round(roomImg.height * ratio)
+        canvas.width = Math.round(img.width * ratio)
+        canvas.height = Math.round(img.height * ratio)
         const ctx = canvas.getContext('2d')!
-        ctx.drawImage(roomImg, 0, 0, canvas.width, canvas.height)
-
-        // Superponer muestra del material en esquina inferior derecha
-        if (materialUrl) {
-          try {
-            const proxyUrl = `/api/material?url=${encodeURIComponent(materialUrl)}`
-            const matImg = await loadImage(proxyUrl)
-            const swatchSize = Math.round(Math.min(canvas.width, canvas.height) * 0.22)
-            const margin = 12
-            const sx = canvas.width - swatchSize - margin
-            const sy = canvas.height - swatchSize - margin
-            // Fondo blanco + borde
-            ctx.fillStyle = 'rgba(255,255,255,0.9)'
-            ctx.fillRect(sx - 4, sy - 4, swatchSize + 8, swatchSize + 8)
-            ctx.drawImage(matImg, sx, sy, swatchSize, swatchSize)
-            // Etiqueta
-            ctx.fillStyle = 'rgba(0,0,0,0.65)'
-            ctx.fillRect(sx - 4, sy + swatchSize - 18, swatchSize + 8, 22)
-            ctx.fillStyle = '#fff'
-            ctx.font = `bold ${Math.round(swatchSize * 0.13)}px sans-serif`
-            ctx.textAlign = 'center'
-            ctx.fillText('Material', sx + swatchSize / 2, sy + swatchSize + 1)
-          } catch {
-            // Si falla el proxy, continuar sin muestra
-          }
-        }
-
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
         resolve(canvas.toDataURL('image/jpeg', 0.82))
       }
-      roomImg.onerror = () => {
+      img.onerror = () => {
         URL.revokeObjectURL(url)
         const reader = new FileReader()
         reader.onloadend = () => resolve(reader.result as string)
         reader.readAsDataURL(file)
       }
-      roomImg.src = url
+      img.src = url
     })
+
+  // Aplica la textura del material sobre el área del suelo usando la máscara de SAM
+  const aplicarTextura = async (roomDataUri: string, maskUrl: string, textureUrl: string): Promise<string> => {
+    const [roomImg, maskImg, textureImg] = await Promise.all([
+      loadImage(roomDataUri),
+      loadImage(maskUrl),
+      loadImage(`/api/material?url=${encodeURIComponent(textureUrl)}`),
+    ])
+
+    const W = roomImg.naturalWidth
+    const H = roomImg.naturalHeight
+
+    // Canvas base: habitación original
+    const canvas = document.createElement('canvas')
+    canvas.width = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(roomImg, 0, 0, W, H)
+
+    // Canvas de textura tileada con perspectiva suave
+    const texCanvas = document.createElement('canvas')
+    texCanvas.width = W
+    texCanvas.height = H
+    const tCtx = texCanvas.getContext('2d')!
+
+    // Escala de textura: ~200px por tile (ajustable)
+    const tileSize = Math.round(Math.min(W, H) * 0.28)
+    const pattern = tCtx.createPattern(textureImg, 'repeat')!
+    // Escalar el patrón al tamaño de tile deseado
+    const scale = tileSize / Math.max(textureImg.naturalWidth, textureImg.naturalHeight)
+    const m = new DOMMatrix().scale(scale)
+    pattern.setTransform(m)
+    tCtx.fillStyle = pattern
+    tCtx.fillRect(0, 0, W, H)
+
+    // Recortar textura al área del suelo usando la máscara
+    tCtx.globalCompositeOperation = 'destination-in'
+    tCtx.drawImage(maskImg, 0, 0, W, H)
+
+    // Aplicar textura sobre la habitación con blend 'multiply' (preserva iluminación)
+    ctx.globalCompositeOperation = 'multiply'
+    ctx.drawImage(texCanvas, 0, 0)
+
+    // Segunda capa en 'screen' al 20% para recuperar luminosidad en zonas oscuras
+    ctx.globalCompositeOperation = 'screen'
+    ctx.globalAlpha = 0.18
+    ctx.drawImage(texCanvas, 0, 0)
+    ctx.globalAlpha = 1
+    ctx.globalCompositeOperation = 'source-over'
+
+    return canvas.toDataURL('image/jpeg', 0.9)
   }
 
   const handleImagen = useCallback((file: File) => {
@@ -114,46 +139,55 @@ export default function Visualizador() {
     if (!imagen) return
     setGenerando(true)
     setError(null)
-    setProgreso(10)
+    setProgreso(5)
 
     try {
       const colorEncontrado = colores.find(c => c.id === colorId)
       const materialUrl = colorEncontrado?.imagen
-      const dataUri = await imagenADataUri(imagen, materialUrl)
-      const res = await fetch('/api/render', {
+      const dataUri = await imagenADataUri(imagen)
+      setProgreso(15)
+
+      // Paso 1: segmentar el suelo con SAM
+      const segRes = await fetch('/api/segment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataUri, servicio, color: colorId, cotizacion_id: cotizacionId, hasMaterialSwatch: !!materialUrl }),
+        body: JSON.stringify({ dataUri }),
       })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error((data as { error?: string }).error || 'Error iniciando render')
+      if (!segRes.ok) {
+        const d = await segRes.json().catch(() => ({}))
+        throw new Error((d as { error?: string }).error || 'Error iniciando segmentación')
       }
-      const { predictionId } = await res.json() as { predictionId: string; renderId: string | null }
+      const { predictionId } = await segRes.json() as { predictionId: string }
+      setProgreso(25)
 
-      setProgreso(30)
-
+      // Paso 2: polling hasta tener la máscara
+      let maskUrl = ''
       let intentos = 0
-      const MAX = 60
+      const MAX = 40
       while (intentos < MAX) {
-        await new Promise(r => setTimeout(r, 3000))
+        await new Promise(r => setTimeout(r, 2500))
         intentos++
-        setProgreso(Math.min(30 + (intentos / MAX) * 65, 95))
+        setProgreso(Math.min(25 + (intentos / MAX) * 55, 80))
 
-        const poll = await fetch(`/api/render/${predictionId}`)
-        const data = await poll.json() as { status: string; renderUrl?: string; error?: string }
+        const poll = await fetch(`/api/segment/${predictionId}`)
+        const data = await poll.json() as { status: string; maskUrl?: string; error?: string }
 
-        if (data.status === 'completado') {
-          setRenderUrl(data.renderUrl!)
-          setProgreso(100)
+        if (data.status === 'completado' && data.maskUrl) {
+          maskUrl = data.maskUrl
           break
         }
         if (data.status === 'error') {
-          throw new Error(data.error ?? 'El render falló')
+          throw new Error(data.error ?? 'Segmentación fallida')
         }
       }
+      if (!maskUrl) throw new Error('La segmentación tardó demasiado. Intenta de nuevo.')
+      setProgreso(85)
 
-      if (intentos >= MAX) throw new Error('El render tardó demasiado. Intenta de nuevo.')
+      // Paso 3: aplicar textura del producto sobre el suelo detectado
+      if (!materialUrl) throw new Error('Este color no tiene imagen de textura')
+      const resultDataUri = await aplicarTextura(dataUri, maskUrl, materialUrl)
+      setRenderUrl(resultDataUri)
+      setProgreso(100)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
     } finally {
@@ -328,13 +362,11 @@ export default function Visualizador() {
                   {renderUrl ? (
                     <a
                       href={renderUrl}
-                      download="render-kersadesign.jpg"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      download="visualizacion-kersadesign.jpg"
                       className="flex-1 bg-green-500 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
                     >
                       <Download className="w-4 h-4" />
-                      Descargar render
+                      Descargar
                     </a>
                   ) : (
                     <button
