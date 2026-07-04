@@ -3,6 +3,8 @@
 
 interface Env {
   REPLICATE_API_TOKEN: string
+  RP_A: string
+  RP_B: string
 }
 
 const COLOR_NOMBRES: Record<string, string> = {
@@ -52,8 +54,10 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
     'Content-Type': 'application/json',
   }
 
+  const replicateToken = env.REPLICATE_API_TOKEN || ((env.RP_A || '') + (env.RP_B || ''))
+
   try {
-    if (!env.REPLICATE_API_TOKEN) {
+    if (!replicateToken) {
       return new Response(
         JSON.stringify({ error: 'El token de Replicate no está configurado. Agrégalo en el dashboard de Cloudflare Pages.' }),
         { status: 500, headers: corsHeaders }
@@ -85,7 +89,7 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
     const replicateRes = await fetch('https://api.replicate.com/v1/models/adirik/interior-design/predictions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.REPLICATE_API_TOKEN}`,
+        'Authorization': `Bearer ${replicateToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
