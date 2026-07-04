@@ -73,26 +73,16 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
       return new Response(JSON.stringify({ error: 'No se recibió imagen' }), { status: 400, headers: corsHeaders })
     }
 
-    // Subir imagen a Replicate Files para obtener una URL pública
-    const imgBytes = new Uint8Array(await imagen.arrayBuffer())
-    const uploadRes = await fetch('https://api.replicate.com/v1/files', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${replicateToken}`,
-        'Content-Type': imagen.type || 'image/jpeg',
-        'Content-Disposition': `attachment; filename="image.jpg"`,
-        'Content-Length': String(imgBytes.byteLength),
-      },
-      body: imgBytes,
-    })
-
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text()
-      throw new Error(`Replicate upload ${uploadRes.status}: ${errText}`)
+    // Convertir imagen a base64 data URI
+    const buffer = await imagen.arrayBuffer()
+    const bytes = new Uint8Array(buffer)
+    let binary = ''
+    const chunkSize = 8192
+    for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
     }
-
-    const uploadData = await uploadRes.json() as { urls: { get: string } }
-    const imageUrl = uploadData.urls.get
+    const base64 = btoa(binary)
+    const dataUri = `data:${imagen.type || 'image/jpeg'};base64,${base64}`
 
     const prompt = buildPrompt(servicio, colorId)
 
@@ -105,7 +95,7 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
       body: JSON.stringify({
         version: '76604baddc85b1b4616e1c6475eca080da339c8875bd4996705440484a6eac38',
         input: {
-          image: imageUrl,
+          image: dataUri,
           prompt,
           guidance_scale: 15,
           negative_prompt: 'lowres, watermark, banner, logo, deformed, blurry, out of focus, ugly, unrealistic, cartoon',
