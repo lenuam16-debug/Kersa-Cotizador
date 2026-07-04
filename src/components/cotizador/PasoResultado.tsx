@@ -82,23 +82,23 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
       <div id="cotizacion-imprimible" className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm mb-6">
 
         {/* Cabecera con logo y datos empresa */}
-        <div className="flex items-start justify-between p-5 border-b border-gray-100" style={{ background: 'linear-gradient(135deg, #0f3a7a 0%, #1a56c4 100%)' }}>
-          <div className="flex items-center gap-3">
-            <img
-              src="https://kersadesign.com/imagenes/embed_000_dc2feea6.png"
-              alt="KersaDesign"
-              className="h-10 object-contain"
-              style={{ filter: 'brightness(0) invert(1)' }}
-            />
-          </div>
-          <div className="text-right text-white text-xs leading-relaxed opacity-90">
-            <p className="font-bold text-sm mb-0.5">KersaDesign</p>
+        <div className="flex items-center justify-between px-5 py-4 border-b-2 border-gray-100 bg-white">
+          <img
+            src="https://kersadesign.com/imagenes/embed_000_dc2feea6.png"
+            alt="KersaDesign"
+            className="h-12 object-contain"
+          />
+          <div className="text-right text-xs leading-relaxed text-gray-600">
+            <p className="font-bold text-sm text-gray-800 mb-0.5">KersaDesign</p>
             <p>Caracas, Venezuela</p>
             <p>Tel: +58 412-123-4567</p>
             <p>info@kersadesign.com</p>
             <p>kersadesign.com</p>
           </div>
         </div>
+
+        {/* Franja azul decorativa */}
+        <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #0f3a7a 0%, #1a56c4 100%)' }} />
 
         {/* Título y número */}
         <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
@@ -108,7 +108,6 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
           </div>
           <div className="text-right text-xs text-gray-500">
             <p>Fecha: <span className="font-medium text-gray-700">{fechaHoy}</span></p>
-            <p className="mt-0.5">Válido por: <span className="font-medium text-gray-700">15 días</span></p>
           </div>
         </div>
 
@@ -209,7 +208,8 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
                 <p className="text-3xl font-black" style={{ color: '#134a9c' }}>
                   {formatCurrency(total)}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">* Precio referencial sujeto a visita técnica</p>
+                <p className="text-xs text-amber-600 font-medium mt-1">* Precio más IVA</p>
+                <p className="text-xs text-gray-400 mt-0.5">Referencial, sujeto a visita técnica</p>
               </div>
             </div>
           ) : (
