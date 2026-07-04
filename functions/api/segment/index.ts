@@ -11,13 +11,13 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
   try {
     const { dataUri } = await request.json() as { dataUri: string }
 
-    const res = await fetch('https://api.replicate.com/v1/models/cjwbw/grounded-segment-anything/predictions', {
+    const res = await fetch('https://api.replicate.com/v1/models/schananas/grounded_sam/predictions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${replicateToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         input: {
           image: dataUri,
-          det_prompt: 'floor. flooring. wood floor. tile floor. ground.',
+          det_prompt: 'floor. flooring. wood floor. tile floor.',
         },
       }),
     })

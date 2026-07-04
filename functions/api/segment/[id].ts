@@ -7,7 +7,8 @@ interface Env {
 interface ReplicatePrediction {
   id: string
   status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled'
-  output?: { mask?: string; segmented_images?: string[]; annotated_image?: string } | null
+  // schananas/grounded_sam devuelve array de URLs: [mask_combined, mask1, mask2, ...]
+  output?: string[] | { mask?: string; segmented_images?: string[] } | null
   error?: string | null
 }
 
@@ -32,10 +33,21 @@ export async function onRequestGet({
     const prediction = await res.json() as ReplicatePrediction
 
     if (prediction.status === 'succeeded' && prediction.output) {
-      // Grounded SAM devuelve mask o segmented_images[0]
-      const maskUrl = prediction.output.mask || prediction.output.segmented_images?.[0] || null
+      // schananas/grounded_sam devuelve array de URLs [imagen_anotada, mascara1, mascara2...]
+      // o un objeto con mask/segmented_images según la versión
+      let maskUrl: string | null = null
+      if (Array.isArray(prediction.output)) {
+        // El primer elemento es la imagen anotada, el resto son máscaras individuales
+        // Buscamos la primera URL que parezca una máscara (PNG con fondo negro)
+        maskUrl = prediction.output[1] || prediction.output[0] || null
+      } else if (prediction.output && typeof prediction.output === 'object') {
+        const out = prediction.output as { mask?: string; segmented_images?: string[] }
+        maskUrl = out.mask || out.segmented_images?.[0] || null
+      }
+
+      // Devolver también el raw output para debug si hay problemas
       if (!maskUrl) {
-        return new Response(JSON.stringify({ status: 'error', error: 'No se detectó suelo en la imagen' }), { headers: corsHeaders })
+        return new Response(JSON.stringify({ status: 'error', error: 'No se detectó suelo en la imagen', rawOutput: prediction.output }), { headers: corsHeaders })
       }
       return new Response(JSON.stringify({ status: 'completado', maskUrl }), { headers: corsHeaders })
     }
