@@ -30,22 +30,25 @@ const COLOR_NOMBRES: Record<string, string> = {
   'verde-sage': 'sage green',
 }
 
-function buildPrompt(servicio: string, colorId: string): string {
+function buildPrompt(servicio: string, colorId: string, hasMaterialSwatch: boolean): string {
   const color = COLOR_NOMBRES[colorId] || colorId || 'natural'
+  const swatchRef = hasMaterialSwatch
+    ? 'matching exactly the material sample shown in the bottom-right corner inset, '
+    : ''
 
   if (servicio === 'vinil-lvt') {
-    return `photorealistic interior room with luxury vinyl LVT plank flooring, ${color} texture, modern clean interior design, professional architectural photography, realistic floor material, high resolution`
+    return `photorealistic interior room with luxury vinyl LVT plank flooring, ${swatchRef}${color} color and texture, seamless realistic floor covering, professional architectural photography, high resolution, no watermark`
   }
   if (servicio === 'vinil-spc') {
-    return `photorealistic interior room with rigid core SPC vinyl plank flooring, ${color} texture, modern interior design, professional architectural photography, realistic floor material, high resolution`
+    return `photorealistic interior room with rigid core SPC vinyl plank flooring, ${swatchRef}${color} color and texture, seamless realistic floor covering, professional architectural photography, high resolution, no watermark`
   }
   if (servicio === 'cocina-modular') {
-    return `photorealistic modern kitchen with ${color} modular kitchen cabinets, clean contemporary kitchen design, professional interior photography, high resolution`
+    return `photorealistic modern kitchen with modular cabinets, ${swatchRef}${color} finish on all cabinet doors and drawers, clean contemporary kitchen design, professional interior photography, high resolution, no watermark`
   }
   if (servicio === 'wallpanel' || servicio === 'laminas-pvc') {
-    return `photorealistic interior room with ${color} decorative wall panels, modern clean interior design, professional architectural photography, high resolution`
+    return `photorealistic interior room with decorative wall panels, ${swatchRef}${color} color and texture on the walls, modern clean interior design, professional architectural photography, high resolution, no watermark`
   }
-  return `photorealistic interior renovation with ${color} material finish, modern clean design, professional photography`
+  return `photorealistic interior renovation with ${swatchRef}${color} material finish, modern clean design, professional photography`
 }
 
 export async function onRequestPost({ request, env }: { request: Request; env: Env }) {
@@ -68,12 +71,14 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
     let dataUri: string | undefined
     let servicio = 'vinil-lvt'
     let colorId = ''
+    let hasMaterialSwatch = false
 
     if (contentType.includes('application/json')) {
-      const body = await request.json() as { dataUri?: string; servicio?: string; color?: string }
+      const body = await request.json() as { dataUri?: string; servicio?: string; color?: string; hasMaterialSwatch?: boolean }
       dataUri = body.dataUri
       servicio = body.servicio || 'vinil-lvt'
       colorId = body.color || ''
+      hasMaterialSwatch = body.hasMaterialSwatch ?? false
     } else {
       // Fallback: multipart form-data con imagen binaria
       const formData = await request.formData()
@@ -95,7 +100,7 @@ export async function onRequestPost({ request, env }: { request: Request; env: E
       return new Response(JSON.stringify({ error: 'No se recibió imagen' }), { status: 400, headers: corsHeaders })
     }
 
-    const prompt = buildPrompt(servicio, colorId)
+    const prompt = buildPrompt(servicio, colorId, hasMaterialSwatch)
 
     const replicateRes = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',

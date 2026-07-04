@@ -36,28 +36,63 @@ export default function Visualizador() {
   const colores = getColores(servicio)
   const infoServicio = SERVICIOS[servicio]
 
-  const imagenADataUri = (file: File): Promise<string> => {
+  const loadImage = (src: string): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => resolve(img)
+      img.onerror = reject
+      img.src = src
+    })
+
+  const imagenADataUri = (file: File, materialUrl?: string): Promise<string> => {
     return new Promise((resolve) => {
       const MAX_SIZE = 900
-      const img = new Image()
+      const roomImg = new Image()
       const url = URL.createObjectURL(file)
-      img.onload = () => {
+      roomImg.onload = async () => {
         URL.revokeObjectURL(url)
-        const ratio = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height, 1)
+        const ratio = Math.min(MAX_SIZE / roomImg.width, MAX_SIZE / roomImg.height, 1)
         const canvas = document.createElement('canvas')
-        canvas.width = Math.round(img.width * ratio)
-        canvas.height = Math.round(img.height * ratio)
+        canvas.width = Math.round(roomImg.width * ratio)
+        canvas.height = Math.round(roomImg.height * ratio)
         const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        resolve(canvas.toDataURL('image/jpeg', 0.75))
+        ctx.drawImage(roomImg, 0, 0, canvas.width, canvas.height)
+
+        // Superponer muestra del material en esquina inferior derecha
+        if (materialUrl) {
+          try {
+            const proxyUrl = `/api/material?url=${encodeURIComponent(materialUrl)}`
+            const matImg = await loadImage(proxyUrl)
+            const swatchSize = Math.round(Math.min(canvas.width, canvas.height) * 0.22)
+            const margin = 12
+            const sx = canvas.width - swatchSize - margin
+            const sy = canvas.height - swatchSize - margin
+            // Fondo blanco + borde
+            ctx.fillStyle = 'rgba(255,255,255,0.9)'
+            ctx.fillRect(sx - 4, sy - 4, swatchSize + 8, swatchSize + 8)
+            ctx.drawImage(matImg, sx, sy, swatchSize, swatchSize)
+            // Etiqueta
+            ctx.fillStyle = 'rgba(0,0,0,0.65)'
+            ctx.fillRect(sx - 4, sy + swatchSize - 18, swatchSize + 8, 22)
+            ctx.fillStyle = '#fff'
+            ctx.font = `bold ${Math.round(swatchSize * 0.13)}px sans-serif`
+            ctx.textAlign = 'center'
+            ctx.fillText('Material', sx + swatchSize / 2, sy + swatchSize + 1)
+          } catch {
+            // Si falla el proxy, continuar sin muestra
+          }
+        }
+
+        resolve(canvas.toDataURL('image/jpeg', 0.82))
       }
-      img.onerror = () => {
+      roomImg.onerror = () => {
         URL.revokeObjectURL(url)
         const reader = new FileReader()
         reader.onloadend = () => resolve(reader.result as string)
         reader.readAsDataURL(file)
       }
-      img.src = url
+      roomImg.src = url
     })
   }
 
@@ -82,11 +117,13 @@ export default function Visualizador() {
     setProgreso(10)
 
     try {
-      const dataUri = await imagenADataUri(imagen)
+      const colorEncontrado = colores.find(c => c.id === colorId)
+      const materialUrl = colorEncontrado?.imagen
+      const dataUri = await imagenADataUri(imagen, materialUrl)
       const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataUri, servicio, color: colorId, cotizacion_id: cotizacionId }),
+        body: JSON.stringify({ dataUri, servicio, color: colorId, cotizacion_id: cotizacionId, hasMaterialSwatch: !!materialUrl }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
