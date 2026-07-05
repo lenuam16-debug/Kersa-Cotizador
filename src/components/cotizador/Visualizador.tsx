@@ -147,38 +147,6 @@ export default function Visualizador() {
     tCtx.fillStyle = pattern
     tCtx.fillRect(0, topFloorY, W, floorH)
 
-    // Dibujar líneas de junta entre láminas con perspectiva real
-    // Proporciones LVT: 1.22m × 0.23m → en primer plano ~7% de W de alto
-    const basePlankH = Math.round(W * 0.07)
-    const perspScale = (y: number) => 0.22 + 0.78 * Math.max(0, Math.min(1, (y - topFloorY) / floorH))
-
-    let rowNum = 0
-    let currentY = topFloorY
-    while (currentY <= bottomFloorY) {
-      const scale = perspScale(currentY)
-      const rowH = Math.max(1, Math.round(basePlankH * scale))
-
-      // Línea de junta horizontal: casi imperceptible
-      tCtx.fillStyle = 'rgba(0,0,0,0.07)'
-      tCtx.fillRect(0, Math.round(currentY), W, 1)
-
-      // Líneas verticales entre láminas (staggered)
-      const basePlankW = Math.round(basePlankH * (1.22 / 0.23))
-      const rowW = Math.round(basePlankW * scale)
-      const offsetX = (rowNum % 2 === 0) ? 0 : rowW / 2
-      for (let x = offsetX; x < W; x += rowW) {
-        tCtx.fillStyle = 'rgba(0,0,0,0.05)'
-        tCtx.fillRect(Math.round(x), Math.round(currentY), 1, rowH)
-      }
-
-      currentY += rowH
-      rowNum++
-    }
-
-    // Oscurecer ligeramente para más profundidad
-    tCtx.fillStyle = 'rgba(0,0,0,0.12)'
-    tCtx.fillRect(0, topFloorY, W, floorH)
-
     // Recortar al área del suelo usando la máscara con alpha correcto
     tCtx.globalCompositeOperation = 'destination-in'
     tCtx.drawImage(maskCanvas, 0, 0, W, H)
@@ -187,6 +155,35 @@ export default function Visualizador() {
     ctx.globalCompositeOperation = 'source-over'
     ctx.globalAlpha = 1.0
     ctx.drawImage(texCanvas, 0, 0)
+
+    // Recuperar la iluminación real del cuarto sobre el nuevo piso
+    // Convertimos el suelo original a escala de grises y lo aplicamos en luminosity
+    // — esto aporta las sombras, gradientes y luz natural SIN traer el color del piso viejo
+    const litCanvas = document.createElement('canvas')
+    litCanvas.width = W; litCanvas.height = H
+    const litCtx = litCanvas.getContext('2d')!
+    litCtx.drawImage(roomImg, 0, 0, W, H)
+
+    // Convertir a escala de grises (solo en área del suelo)
+    const litData = litCtx.getImageData(0, 0, W, H)
+    const mkData = maskCtx.getImageData(0, 0, W, H)
+    for (let i = 0; i < litData.data.length; i += 4) {
+      if (mkData.data[i + 3] > 64) {
+        const g = litData.data[i] * 0.299 + litData.data[i + 1] * 0.587 + litData.data[i + 2] * 0.114
+        litData.data[i] = g; litData.data[i + 1] = g; litData.data[i + 2] = g
+      } else {
+        litData.data[i + 3] = 0  // fuera del suelo: transparente
+      }
+    }
+    litCtx.putImageData(litData, 0, 0)
+
+    // Aplicar iluminación en luminosity: preserva brillo/sombras del cuarto sin mezclar color
+    ctx.globalCompositeOperation = 'luminosity'
+    ctx.globalAlpha = 0.55
+    ctx.drawImage(litCanvas, 0, 0)
+
+    ctx.globalAlpha = 1
+    ctx.globalCompositeOperation = 'source-over'
 
     // Re-componer elementos no-suelo (sillas, muebles) encima del nuevo piso
     // para que se vean naturalmente posados sobre el material sin bordes artificiales
