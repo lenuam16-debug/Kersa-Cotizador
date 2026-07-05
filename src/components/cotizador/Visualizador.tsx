@@ -103,52 +103,63 @@ export default function Visualizador() {
     }
     maskCtx.putImageData(maskData, 0, 0)
 
-    // Proporciones reales lámina LVT: 1.22m × 0.23m → ratio 5.3:1
-    const PLANK_RATIO = 1.22 / 0.23  // ≈ 5.3
-    const plankH = Math.round(W * 0.065)
-    const plankW = Math.round(plankH * PLANK_RATIO)
+    // Detectar límites verticales del suelo desde la máscara
+    const maskPixels = maskCtx.getImageData(0, 0, W, H)
+    let topFloorY = H, bottomFloorY = 0
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        if (maskPixels.data[(py * W + px) * 4 + 3] > 128) {
+          if (py < topFloorY) topFloorY = py
+          if (py > bottomFloorY) bottomFloorY = py
+          break
+        }
+      }
+    }
+    const floorSpan = Math.max(1, bottomFloorY - topFloorY)
 
-    // Tilear láminas con patrón alterno sin GAP visible (LVT se instala sin junta)
+    // Perspectiva: láminas pequeñas al fondo (topFloorY), grandes en primer plano (bottomFloorY)
+    // escala va de 0.25 arriba a 1.0 abajo
+    const perspScale = (y: number) => 0.25 + 0.75 * Math.max(0, Math.min(1, (y - topFloorY) / floorSpan))
+
+    // Proporciones reales lámina LVT: 1.22m × 0.23m → ratio 5.3:1
+    const PLANK_RATIO = 1.22 / 0.23
+    const basePlankH = Math.round(W * 0.065) // tamaño en primer plano
+    const basePlankW = Math.round(basePlankH * PLANK_RATIO)
+
     const texCanvas = document.createElement('canvas')
     texCanvas.width = W; texCanvas.height = H
     const tCtx = texCanvas.getContext('2d')!
 
-    // Precalcular variaciones de brillo por fila (simula vetas distintas entre láminas)
-    const rowBrightness: number[] = []
-    const totalRows = Math.ceil(H / plankH) + 2
-    for (let i = 0; i < totalRows; i++) {
-      rowBrightness.push((Math.random() - 0.5) * 0.08) // ±4% brillo
-    }
+    let rowNum = 0
+    let currentY = topFloorY
+    while (currentY < H + basePlankH) {
+      const scale = perspScale(currentY)
+      const rowH = Math.max(2, Math.round(basePlankH * scale))
+      const rowW = Math.max(4, Math.round(basePlankW * scale))
+      const offsetX = (rowNum % 2 === 0) ? 0 : -(rowW / 2)
+      const rowBright = (Math.random() - 0.5) * 0.08
 
-    for (let row = -1; row * plankH < H + plankH; row++) {
-      const y = row * plankH
-      const offsetX = (row % 2 === 0) ? 0 : -(plankW / 2)
-      const rowIdx = row + 1
+      for (let col = -1; col * rowW + offsetX < W + rowW; col++) {
+        const x = Math.round(col * rowW + offsetX)
+        tCtx.drawImage(textureImg, x, Math.round(currentY), rowW, rowH)
 
-      for (let col = -1; col * plankW + offsetX < W + plankW; col++) {
-        const x = col * plankW + offsetX
-
-        // Lámina base
-        tCtx.drawImage(textureImg, Math.round(x), Math.round(y), plankW, plankH)
-
-        // Variación sutil de brillo por lámina (diferente columna = diferente offset)
-        const bright = rowBrightness[rowIdx] + (Math.random() - 0.5) * 0.04
-        if (bright > 0) {
-          tCtx.fillStyle = `rgba(255,255,255,${bright})`
-        } else {
-          tCtx.fillStyle = `rgba(0,0,0,${Math.abs(bright)})`
-        }
-        tCtx.fillRect(Math.round(x), Math.round(y), plankW, plankH)
+        // Variación sutil de brillo por lámina
+        const bright = rowBright + (Math.random() - 0.5) * 0.04
+        tCtx.fillStyle = bright > 0 ? `rgba(255,255,255,${bright})` : `rgba(0,0,0,${Math.abs(bright)})`
+        tCtx.fillRect(x, Math.round(currentY), rowW, rowH)
       }
 
-      // Micro-bisel casi imperceptible entre filas
+      // Micro-bisel imperceptible entre filas
       tCtx.fillStyle = 'rgba(0,0,0,0.05)'
-      tCtx.fillRect(0, Math.round(y) + plankH - 1, W, 1)
+      tCtx.fillRect(0, Math.round(currentY) + rowH - 1, W, 1)
+
+      currentY += rowH
+      rowNum++
     }
 
-    // Oscurecer ligeramente toda la textura para más profundidad y realismo
+    // Oscurecer ligeramente para más profundidad
     tCtx.globalCompositeOperation = 'source-over'
-    tCtx.fillStyle = 'rgba(0,0,0,0.18)'
+    tCtx.fillStyle = 'rgba(0,0,0,0.15)'
     tCtx.fillRect(0, 0, W, H)
 
     // Recortar al área del suelo usando la máscara con alpha correcto
