@@ -141,19 +141,37 @@ export default function Visualizador() {
         tCtx.fillRect(Math.round(x), Math.round(y), plankW, plankH)
       }
 
-      // Micro-bisel: sombra de 1px al borde inferior de cada fila (simula unión LVT)
-      tCtx.fillStyle = 'rgba(0,0,0,0.12)'
+      // Micro-bisel casi imperceptible entre filas
+      tCtx.fillStyle = 'rgba(0,0,0,0.05)'
       tCtx.fillRect(0, Math.round(y) + plankH - 1, W, 1)
     }
+
+    // Oscurecer ligeramente toda la textura para más profundidad y realismo
+    tCtx.globalCompositeOperation = 'source-over'
+    tCtx.fillStyle = 'rgba(0,0,0,0.18)'
+    tCtx.fillRect(0, 0, W, H)
 
     // Recortar al área del suelo usando la máscara con alpha correcto
     tCtx.globalCompositeOperation = 'destination-in'
     tCtx.drawImage(maskCanvas, 0, 0, W, H)
 
-    // Cobertura total: reemplaza completamente el suelo existente, sin mezcla con original
+    // Cobertura total: reemplaza completamente el suelo existente
     ctx.globalCompositeOperation = 'source-over'
     ctx.globalAlpha = 1.0
     ctx.drawImage(texCanvas, 0, 0)
+
+    // Re-componer elementos no-suelo (sillas, muebles) encima del nuevo piso
+    // para que se vean naturalmente posados sobre el material sin bordes artificiales
+    const nonFloorCanvas = document.createElement('canvas')
+    nonFloorCanvas.width = W; nonFloorCanvas.height = H
+    const nCtx = nonFloorCanvas.getContext('2d')!
+    nCtx.drawImage(roomImg, 0, 0, W, H)
+    nCtx.globalCompositeOperation = 'destination-out'
+    nCtx.drawImage(maskCanvas, 0, 0, W, H)
+
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.globalAlpha = 1.0
+    ctx.drawImage(nonFloorCanvas, 0, 0)
 
     ctx.globalAlpha = 1
     ctx.globalCompositeOperation = 'source-over'
