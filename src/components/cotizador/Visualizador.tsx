@@ -117,13 +117,25 @@ export default function Visualizador() {
     }
     const floorH = Math.max(1, bottomFloorY - topFloorY)
 
-    // Escalar la textura del producto para cubrir todo el alto del suelo sin repetir
-    // — se repite solo horizontalmente, eliminando el patrón visible de teselas
-    const texW = Math.round(textureImg.naturalWidth * (floorH / textureImg.naturalHeight))
+    // Rotar la textura 90° — las imágenes del producto son portrait (veta vertical)
+    // pero en el suelo los tablones se instalan con la veta horizontal
+    const iW = textureImg.naturalWidth
+    const iH = textureImg.naturalHeight
+    const rotCanvas = document.createElement('canvas')
+    rotCanvas.width = iH; rotCanvas.height = iW  // dimensiones intercambiadas
+    const rotCtx = rotCanvas.getContext('2d')!
+    rotCtx.translate(iH / 2, iW / 2)
+    rotCtx.rotate(Math.PI / 2)
+    rotCtx.drawImage(textureImg, -iW / 2, -iH / 2, iW, iH)
+    // rotCanvas ahora tiene la veta corriendo horizontalmente
+
+    // Escalar la textura rotada para cubrir todo el alto del suelo sin repetir verticalmente
+    // El ancho del tile = proporción natural de la imagen rotada escalada al floorH
+    const texW = Math.round(rotCanvas.width * (floorH / rotCanvas.height))
     const scaledTex = document.createElement('canvas')
     scaledTex.width = texW; scaledTex.height = floorH
     const stCtx = scaledTex.getContext('2d')!
-    stCtx.drawImage(textureImg, 0, 0, texW, floorH)
+    stCtx.drawImage(rotCanvas, 0, 0, texW, floorH)
 
     const texCanvas = document.createElement('canvas')
     texCanvas.width = W; texCanvas.height = H
