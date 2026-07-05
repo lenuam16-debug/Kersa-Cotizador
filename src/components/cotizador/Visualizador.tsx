@@ -117,35 +117,70 @@ export default function Visualizador() {
     }
     const floorH = Math.max(1, bottomFloorY - topFloorY)
 
-    // Rotar la textura 90° — las imágenes del producto son portrait (veta vertical)
-    // pero en el suelo los tablones se instalan con la veta horizontal
+    // Rotar textura 90° (imágenes portrait → veta horizontal para el suelo)
     const iW = textureImg.naturalWidth
     const iH = textureImg.naturalHeight
     const rotCanvas = document.createElement('canvas')
-    rotCanvas.width = iH; rotCanvas.height = iW  // dimensiones intercambiadas
+    rotCanvas.width = iH; rotCanvas.height = iW
     const rotCtx = rotCanvas.getContext('2d')!
     rotCtx.translate(iH / 2, iW / 2)
     rotCtx.rotate(Math.PI / 2)
     rotCtx.drawImage(textureImg, -iW / 2, -iH / 2, iW, iH)
-    // rotCanvas ahora tiene la veta corriendo horizontalmente
-
-    // Escalar la textura rotada para cubrir todo el alto del suelo sin repetir verticalmente
-    // El ancho del tile = proporción natural de la imagen rotada escalada al floorH
-    const texW = Math.round(rotCanvas.width * (floorH / rotCanvas.height))
-    const scaledTex = document.createElement('canvas')
-    scaledTex.width = texW; scaledTex.height = floorH
-    const stCtx = scaledTex.getContext('2d')!
-    stCtx.drawImage(rotCanvas, 0, 0, texW, floorH)
 
     const texCanvas = document.createElement('canvas')
     texCanvas.width = W; texCanvas.height = H
     const tCtx = texCanvas.getContext('2d')!
 
-    // Rellenar el área del suelo con la textura (repeat-x, no repeat-y)
-    const pattern = tCtx.createPattern(scaledTex, 'repeat-x')!
-    pattern.setTransform(new DOMMatrix().translate(0, topFloorY))
-    tCtx.fillStyle = pattern
-    tCtx.fillRect(0, topFloorY, W, floorH)
+    // Dibujar tablones individuales con perspectiva real
+    // Cada tablón usa un recorte diferente de la textura → sin patrón repetido visible
+    const basePlankH = Math.round(W * 0.068)   // alto en primer plano
+    const RATIO = 1.22 / 0.23                   // proporción LVT real
+    const basePlankW = Math.round(basePlankH * RATIO)
+    const perspScale = (y: number) => 0.18 + 0.82 * Math.max(0, Math.min(1, (y - topFloorY) / floorH))
+
+    let rowNum = 0
+    let currentY = topFloorY
+    const rW = rotCanvas.width, rH = rotCanvas.height
+
+    while (currentY < bottomFloorY + basePlankH) {
+      const sc = perspScale(currentY)
+      const pH = Math.max(2, Math.round(basePlankH * sc))
+      const pW = Math.max(4, Math.round(basePlankW * sc))
+      const offsetX = (rowNum % 2 === 0) ? 0 : Math.round(pW / 2)
+
+      // Offset Y en la textura fuente varía por fila → veta diferente por tablón
+      const srcYOffset = (rowNum * 37) % Math.max(1, rH - 1)
+      const srcH = Math.max(1, rH - srcYOffset)
+
+      for (let col = -1; col * pW + offsetX < W + pW; col++) {
+        const dx = Math.round(col * pW + offsetX)
+        // Offset X diferente por columna → cada tablón parece independiente
+        const srcXOffset = ((rowNum * 13 + col * 29) * 17) % Math.max(1, rW)
+        const srcWAvail = rW - srcXOffset
+
+        // Dibujar el tablón desde un recorte único de la textura
+        if (srcWAvail > 0) {
+          tCtx.drawImage(rotCanvas, srcXOffset, srcYOffset, srcWAvail, srcH, dx, Math.round(currentY), pW, pH)
+          // Si el recorte no cubre el ancho completo, completar desde el inicio
+          if (srcWAvail < rW && pW > 0) {
+            const remDest = Math.round(pW * (1 - srcWAvail / rW))
+            tCtx.drawImage(rotCanvas, 0, srcYOffset, rW - srcWAvail, srcH, dx + pW - remDest, Math.round(currentY), remDest, pH)
+          }
+        }
+
+        // Variación sutil de brillo por tablón (simula vetas distintas)
+        const bright = ((rowNum * 7 + col * 11) % 10 - 5) * 0.006
+        tCtx.fillStyle = bright > 0 ? `rgba(255,255,255,${bright})` : `rgba(0,0,0,${Math.abs(bright)})`
+        tCtx.fillRect(dx, Math.round(currentY), pW, pH)
+      }
+
+      // Junta horizontal casi imperceptible
+      tCtx.fillStyle = 'rgba(0,0,0,0.06)'
+      tCtx.fillRect(0, Math.round(currentY) + pH - 1, W, 1)
+
+      currentY += pH
+      rowNum++
+    }
 
     // Recortar al área del suelo usando la máscara con alpha correcto
     tCtx.globalCompositeOperation = 'destination-in'
