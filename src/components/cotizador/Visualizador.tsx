@@ -115,52 +115,57 @@ export default function Visualizador() {
         }
       }
     }
-    const floorSpan = Math.max(1, bottomFloorY - topFloorY)
+    const floorH = Math.max(1, bottomFloorY - topFloorY)
 
-    // Perspectiva: láminas pequeñas al fondo (topFloorY), grandes en primer plano (bottomFloorY)
-    // escala va de 0.25 arriba a 1.0 abajo
-    const perspScale = (y: number) => 0.25 + 0.75 * Math.max(0, Math.min(1, (y - topFloorY) / floorSpan))
-
-    // Proporciones reales lámina LVT: 1.22m × 0.23m → ratio 5.3:1
-    const PLANK_RATIO = 1.22 / 0.23
-    const basePlankH = Math.round(W * 0.065) // tamaño en primer plano
-    const basePlankW = Math.round(basePlankH * PLANK_RATIO)
+    // Escalar la textura del producto para cubrir todo el alto del suelo sin repetir
+    // — se repite solo horizontalmente, eliminando el patrón visible de teselas
+    const texW = Math.round(textureImg.naturalWidth * (floorH / textureImg.naturalHeight))
+    const scaledTex = document.createElement('canvas')
+    scaledTex.width = texW; scaledTex.height = floorH
+    const stCtx = scaledTex.getContext('2d')!
+    stCtx.drawImage(textureImg, 0, 0, texW, floorH)
 
     const texCanvas = document.createElement('canvas')
     texCanvas.width = W; texCanvas.height = H
     const tCtx = texCanvas.getContext('2d')!
 
+    // Rellenar el área del suelo con la textura (repeat-x, no repeat-y)
+    const pattern = tCtx.createPattern(scaledTex, 'repeat-x')!
+    pattern.setTransform(new DOMMatrix().translate(0, topFloorY))
+    tCtx.fillStyle = pattern
+    tCtx.fillRect(0, topFloorY, W, floorH)
+
+    // Dibujar líneas de junta entre láminas con perspectiva real
+    // Proporciones LVT: 1.22m × 0.23m → en primer plano ~7% de W de alto
+    const basePlankH = Math.round(W * 0.07)
+    const perspScale = (y: number) => 0.22 + 0.78 * Math.max(0, Math.min(1, (y - topFloorY) / floorH))
+
     let rowNum = 0
     let currentY = topFloorY
-    while (currentY < H + basePlankH) {
+    while (currentY <= bottomFloorY) {
       const scale = perspScale(currentY)
-      const rowH = Math.max(2, Math.round(basePlankH * scale))
-      const rowW = Math.max(4, Math.round(basePlankW * scale))
-      const offsetX = (rowNum % 2 === 0) ? 0 : -(rowW / 2)
-      const rowBright = (Math.random() - 0.5) * 0.08
+      const rowH = Math.max(1, Math.round(basePlankH * scale))
 
-      for (let col = -1; col * rowW + offsetX < W + rowW; col++) {
-        const x = Math.round(col * rowW + offsetX)
-        tCtx.drawImage(textureImg, x, Math.round(currentY), rowW, rowH)
+      // Línea de junta horizontal: casi imperceptible
+      tCtx.fillStyle = 'rgba(0,0,0,0.07)'
+      tCtx.fillRect(0, Math.round(currentY), W, 1)
 
-        // Variación sutil de brillo por lámina
-        const bright = rowBright + (Math.random() - 0.5) * 0.04
-        tCtx.fillStyle = bright > 0 ? `rgba(255,255,255,${bright})` : `rgba(0,0,0,${Math.abs(bright)})`
-        tCtx.fillRect(x, Math.round(currentY), rowW, rowH)
+      // Líneas verticales entre láminas (staggered)
+      const basePlankW = Math.round(basePlankH * (1.22 / 0.23))
+      const rowW = Math.round(basePlankW * scale)
+      const offsetX = (rowNum % 2 === 0) ? 0 : rowW / 2
+      for (let x = offsetX; x < W; x += rowW) {
+        tCtx.fillStyle = 'rgba(0,0,0,0.05)'
+        tCtx.fillRect(Math.round(x), Math.round(currentY), 1, rowH)
       }
-
-      // Micro-bisel imperceptible entre filas
-      tCtx.fillStyle = 'rgba(0,0,0,0.05)'
-      tCtx.fillRect(0, Math.round(currentY) + rowH - 1, W, 1)
 
       currentY += rowH
       rowNum++
     }
 
     // Oscurecer ligeramente para más profundidad
-    tCtx.globalCompositeOperation = 'source-over'
-    tCtx.fillStyle = 'rgba(0,0,0,0.15)'
-    tCtx.fillRect(0, 0, W, H)
+    tCtx.fillStyle = 'rgba(0,0,0,0.12)'
+    tCtx.fillRect(0, topFloorY, W, floorH)
 
     // Recortar al área del suelo usando la máscara con alpha correcto
     tCtx.globalCompositeOperation = 'destination-in'
