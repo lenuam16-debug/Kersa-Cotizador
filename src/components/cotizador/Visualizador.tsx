@@ -156,30 +156,30 @@ export default function Visualizador() {
     ctx.globalAlpha = 1.0
     ctx.drawImage(texCanvas, 0, 0)
 
-    // Recuperar la iluminación real del cuarto sobre el nuevo piso
-    // Convertimos el suelo original a escala de grises y lo aplicamos en luminosity
-    // — esto aporta las sombras, gradientes y luz natural SIN traer el color del piso viejo
+    // Recuperar solo el gradiente de iluminación general del cuarto (sin patrón del piso viejo)
+    // Aplicamos blur fuerte para eliminar el detalle de baldosas/juntas y conservar solo
+    // el gradiente de luz ambiental (más oscuro al fondo, más claro al frente, sombras de muebles)
     const litCanvas = document.createElement('canvas')
     litCanvas.width = W; litCanvas.height = H
     const litCtx = litCanvas.getContext('2d')!
+    const blurPx = Math.round(W * 0.04) // ~36px de blur en imagen 900px — elimina detalles pequeños
+    litCtx.filter = `blur(${blurPx}px)`
     litCtx.drawImage(roomImg, 0, 0, W, H)
+    litCtx.filter = 'none'
 
-    // Convertir a escala de grises (solo en área del suelo)
+    // Convertir a escala de grises y enmascarar al área del suelo
     const litData = litCtx.getImageData(0, 0, W, H)
     const mkData = maskCtx.getImageData(0, 0, W, H)
     for (let i = 0; i < litData.data.length; i += 4) {
-      if (mkData.data[i + 3] > 64) {
-        const g = litData.data[i] * 0.299 + litData.data[i + 1] * 0.587 + litData.data[i + 2] * 0.114
-        litData.data[i] = g; litData.data[i + 1] = g; litData.data[i + 2] = g
-      } else {
-        litData.data[i + 3] = 0  // fuera del suelo: transparente
-      }
+      const g = litData.data[i] * 0.299 + litData.data[i + 1] * 0.587 + litData.data[i + 2] * 0.114
+      litData.data[i] = g; litData.data[i + 1] = g; litData.data[i + 2] = g
+      litData.data[i + 3] = mkData.data[i + 3] > 64 ? 255 : 0
     }
     litCtx.putImageData(litData, 0, 0)
 
-    // Aplicar iluminación en luminosity: preserva brillo/sombras del cuarto sin mezclar color
+    // Aplicar gradiente de iluminación en luminosity — suave para no aplanar la textura
     ctx.globalCompositeOperation = 'luminosity'
-    ctx.globalAlpha = 0.55
+    ctx.globalAlpha = 0.35
     ctx.drawImage(litCanvas, 0, 0)
 
     ctx.globalAlpha = 1
