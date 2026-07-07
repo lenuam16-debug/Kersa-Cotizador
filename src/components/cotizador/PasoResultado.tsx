@@ -3,7 +3,7 @@
 import { PasoForm } from '@/types'
 import { SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_COCINA } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
-import { CheckCircle, Phone, Mail, CalendarCheck, MessageCircle, Printer } from 'lucide-react'
+import { CheckCircle, CalendarCheck, MessageCircle, Printer } from 'lucide-react'
 
 interface Props {
   datos: PasoForm
@@ -260,24 +260,6 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
             <Printer className="w-4 h-4" />
             Descargar PDF
           </button>
-        </div>
-      </div>
-
-      {/* Próximos pasos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 no-print">
-        <div className="flex items-start gap-3 bg-gray-50 rounded-xl p-4">
-          <Phone className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-gray-700">Te llamamos</p>
-            <p className="text-xs text-gray-500">Un asesor se comunicará al {datos.telefono}</p>
-          </div>
-        </div>
-        <div className="flex items-start gap-3 bg-gray-50 rounded-xl p-4">
-          <Mail className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-gray-700">Correo con detalles</p>
-            <p className="text-xs text-gray-500">Recibirás el resumen en tu email</p>
-          </div>
         </div>
       </div>
 
