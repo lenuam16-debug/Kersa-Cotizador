@@ -3,8 +3,7 @@
 import { PasoForm } from '@/types'
 import { SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_COCINA } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
-import { CheckCircle, Phone, Mail, Camera, Printer } from 'lucide-react'
-import Link from 'next/link'
+import { CheckCircle, Phone, Mail, CalendarCheck, MessageCircle, Printer } from 'lucide-react'
 
 interface Props {
   datos: PasoForm
@@ -53,7 +52,11 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
   const costoBase = precio ? precio.max : 0
   const total = precio ? costoBase + costoAcond + costoPerfil + (flete ?? 0) : null
 
-  const visualizadorUrl = `/visualizador?${cotizacionId ? `cotizacion=${cotizacionId}&` : ''}servicio=${servicio}${colorInfo ? `&color=${colorInfo.id}` : ''}`
+  const whatsappMsg = encodeURIComponent(
+    `Hola, acabo de generar mi cotización #${nroCotizacion} en KersaDesign para ${info.nombre}${colorInfo ? ` (${colorInfo.nombre})` : ''} — ${cantidad} ${info.unidad}${total ? `. Total estimado: ${formatCurrency(total)}` : ''}. Me gustaría más información.`
+  )
+  const whatsappUrl = `https://wa.me/584142568220?text=${whatsappMsg}`
+  const calendarUrl = 'https://calendar.app.google/M7fVDiT5MbkRt1cC8'
 
   return (
     <div>
@@ -253,19 +256,26 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
         </div>
       </div>
 
-      {/* CTA Visualizador IA */}
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 text-white no-print">
-        <Camera className="w-10 h-10 mx-auto mb-3 opacity-90" />
-        <h3 className="text-xl font-bold mb-2">¿Cómo quedaría en tu espacio?</h3>
-        <p className="text-blue-100 text-sm mb-4">
-          Sube una foto de tu espacio y nuestra IA te muestra cómo quedaría con{colorInfo ? ` el color ${colorInfo.nombre}` : ' el material elegido'}
-        </p>
-        <Link
-          href={visualizadorUrl}
-          className="inline-block bg-white text-blue-700 font-bold px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors"
+      {/* CTAs: WhatsApp + Agendar visita */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 no-print">
+        <a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-3 bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-4 rounded-2xl transition-colors shadow-sm"
         >
-          Ver render de mi espacio →
-        </Link>
+          <MessageCircle className="w-6 h-6" />
+          Contactar asesor por WhatsApp
+        </a>
+        <a
+          href={calendarUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-4 rounded-2xl transition-colors shadow-sm"
+        >
+          <CalendarCheck className="w-6 h-6" />
+          Agendar visita técnica
+        </a>
       </div>
     </div>
   )
