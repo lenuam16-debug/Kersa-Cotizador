@@ -171,7 +171,7 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
         )}
 
         {/* Rodapié PVC — solo vinil */}
-        {esVinil(servicio) && datos.metros_cuadrados && datos.metros_cuadrados > 0 && (
+        {esVinil(servicio) && (
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               ¿Deseas incluir rodapié PVC? <span className="text-gray-400 font-normal">(opcional)</span>
@@ -201,7 +201,10 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
                   Sí, incluir rodapié PVC
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  ~{Math.ceil((datos.metros_cuadrados ?? 0) * 0.9)} ML estimados · $9.6/ML · incluye rodapié, instalación y carateo
+                  {datos.metros_cuadrados && datos.metros_cuadrados > 0
+                    ? `~${Math.ceil(datos.metros_cuadrados * 0.9)} ML estimados · $9.6/ML · `
+                    : '$9.6/ML · '}
+                  incluye rodapié, instalación y carateo
                 </p>
               </div>
             </button>
