@@ -163,6 +163,26 @@ export default function Cotizador() {
             </div>
           )}
 
+          {/* Aviso de campos faltantes */}
+          {paso === 1 && !puedeAvanzar() && (
+            <p className="mt-4 text-center text-sm text-amber-600 font-medium">
+              ⚠ Ingresa el área aproximada en m² para continuar
+            </p>
+          )}
+          {paso === 2 && !puedeAvanzar() && (() => {
+            const falta = []
+            if (!datos.nombre?.trim()) falta.push('nombre')
+            if (!datos.telefono?.trim()) falta.push('teléfono')
+            if (!datos.email?.trim()) falta.push('correo electrónico')
+            if (!datos.ciudad?.trim()) falta.push('ciudad')
+            if (!datos.municipio?.trim()) falta.push('municipio')
+            return (
+              <p className="mt-4 text-center text-sm text-amber-600 font-medium">
+                ⚠ Completa los siguientes campos: {falta.join(', ')}
+              </p>
+            )
+          })()}
+
           {/* Navegación */}
           {paso < TOTAL_PASOS - 1 && (
             <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
