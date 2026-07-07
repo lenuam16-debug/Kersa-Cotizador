@@ -25,8 +25,11 @@ export default function Cotizador() {
     if (paso === 0) return !!datos.servicio
     if (paso === 1) {
       const esCocina = datos.servicio === 'cocina-modular'
+      const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-spc'
       const cantidad = esCocina ? datos.metros_lineales : datos.metros_cuadrados
-      return !!cantidad && cantidad > 0
+      if (!cantidad || cantidad <= 0) return false
+      if (esVinil && !datos.tipo_piso_actual) return false
+      return true
     }
     if (paso === 2) {
       return !!(datos.nombre?.trim() && datos.telefono?.trim() && datos.email?.trim() && datos.ciudad?.trim() && datos.municipio?.trim())
@@ -164,11 +167,19 @@ export default function Cotizador() {
           )}
 
           {/* Aviso de campos faltantes */}
-          {paso === 1 && !puedeAvanzar() && (
-            <p className="mt-4 text-center text-sm text-amber-600 font-medium">
-              ⚠ Ingresa el área aproximada en m² para continuar
-            </p>
-          )}
+          {paso === 1 && !puedeAvanzar() && (() => {
+            const esCocina = datos.servicio === 'cocina-modular'
+            const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-spc'
+            const cantidad = esCocina ? datos.metros_lineales : datos.metros_cuadrados
+            const falta = []
+            if (!cantidad || cantidad <= 0) falta.push(esCocina ? 'metros lineales de cocina' : 'área aproximada en m²')
+            if (esVinil && !datos.tipo_piso_actual) falta.push('tipo de piso actual')
+            return (
+              <p className="mt-4 text-center text-sm text-amber-600 font-medium">
+                ⚠ Completa los siguientes campos: {falta.join(' y ')}
+              </p>
+            )
+          })()}
           {paso === 2 && !puedeAvanzar() && (() => {
             const falta = []
             if (!datos.nombre?.trim()) falta.push('nombre')
