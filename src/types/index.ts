@@ -67,4 +67,5 @@ export interface PasoForm {
   fecha_proyecto?: string
   incluir_rodapie?: boolean
   ml_rodapie?: number
+  telefono_verificado?: boolean
 }

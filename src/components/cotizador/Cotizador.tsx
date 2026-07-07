@@ -9,6 +9,7 @@ import PasoDatos from './PasoDatos'
 import PasoResultado from './PasoResultado'
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { validNombre, validTelefono, validEmail } from './PasoDatos'
 
 const TOTAL_PASOS = 4
 
@@ -34,7 +35,14 @@ export default function Cotizador() {
       return true
     }
     if (paso === 2) {
-      return !!(datos.nombre?.trim() && datos.telefono?.trim() && datos.email?.trim() && datos.ciudad?.trim() && datos.municipio?.trim())
+      return !!(
+        validNombre(datos.nombre ?? '') &&
+        validTelefono(datos.telefono ?? '') &&
+        datos.telefono_verificado &&
+        validEmail(datos.email ?? '') &&
+        datos.ciudad?.trim() &&
+        datos.municipio?.trim()
+      )
     }
     return true
   }
@@ -186,14 +194,15 @@ export default function Cotizador() {
           })()}
           {paso === 2 && !puedeAvanzar() && (() => {
             const falta = []
-            if (!datos.nombre?.trim()) falta.push('nombre')
-            if (!datos.telefono?.trim()) falta.push('teléfono')
-            if (!datos.email?.trim()) falta.push('correo electrónico')
-            if (!datos.ciudad?.trim()) falta.push('ciudad')
+            if (!validNombre(datos.nombre ?? '')) falta.push('nombre completo (nombre y apellido)')
+            if (!validTelefono(datos.telefono ?? '')) falta.push('teléfono válido (0412/0414/0416/0424/0426)')
+            else if (!datos.telefono_verificado) falta.push('verificar el número por WhatsApp')
+            if (!validEmail(datos.email ?? '')) falta.push('correo electrónico válido')
+            if (!datos.ciudad?.trim()) falta.push('estado')
             if (!datos.municipio?.trim()) falta.push('municipio')
             return (
               <p className="mt-4 text-center text-sm text-amber-600 font-medium">
-                ⚠ Completa los siguientes campos: {falta.join(', ')}
+                ⚠ Falta: {falta.join(' · ')}
               </p>
             )
           })()}
