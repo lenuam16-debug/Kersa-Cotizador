@@ -48,10 +48,12 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
   const costoAcond = esLVT ? COSTO_ACOND_M2 * cantidad : 0
   const costoPerfil = esLVT ? COSTO_PERFIL_TERMINACION : 0
 
-  // Rodapié PVC: 90% del metraje cuadrado en ML × $9.6/ML (solo si el cliente lo eligió)
+  // Rodapié PVC: usa ML ingresados por el cliente, o estima 90% del metraje
   const PRECIO_RODAPIE_ML = 9.6
   const incluyeRodapie = esLVT && !!datos.incluir_rodapie
-  const mlRodapie = incluyeRodapie ? Math.ceil(cantidad * 0.9) : 0
+  const mlRodapie = incluyeRodapie
+    ? (datos.ml_rodapie ?? Math.ceil(cantidad * 0.9))
+    : 0
   const costoRodapie = mlRodapie * PRECIO_RODAPIE_ML
 
   // Usamos precio.max como precio estándar (precio completo, sin descuento mínimo)
@@ -193,7 +195,9 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
                     <p className="font-medium text-gray-800">
                       Rodapié PVC <span className="text-xs font-normal text-blue-600 bg-blue-50 rounded px-1.5 py-0.5 ml-1">Opcional</span>
                     </p>
-                    <p className="text-xs text-gray-400">Incluye rodapié, instalación y carateo · estimado ~{mlRodapie} ML (10% del metraje)</p>
+                    <p className="text-xs text-gray-400">
+                      Incluye rodapié, instalación y carateo · {datos.ml_rodapie ? `${mlRodapie} ML` : `~${mlRodapie} ML estimados (90% del área)`}
+                    </p>
                   </td>
                   <td className="py-2 text-right text-gray-700">{mlRodapie} ML</td>
                   <td className="py-2 text-right text-gray-700">${PRECIO_RODAPIE_ML}/ML</td>

@@ -178,7 +178,7 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
             </label>
             <button
               type="button"
-              onClick={() => onChange({ incluir_rodapie: !datos.incluir_rodapie })}
+              onClick={() => onChange({ incluir_rodapie: !datos.incluir_rodapie, ml_rodapie: undefined })}
               className={cn(
                 'w-full flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all',
                 datos.incluir_rodapie
@@ -201,13 +201,45 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
                   Sí, incluir rodapié PVC
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {datos.metros_cuadrados && datos.metros_cuadrados > 0
-                    ? `~${Math.ceil(datos.metros_cuadrados * 0.9)} ML estimados · $9.6/ML · `
-                    : '$9.6/ML · '}
-                  incluye rodapié, instalación y carateo
+                  $9.6/ML · incluye rodapié, instalación y carateo
                 </p>
               </div>
             </button>
+
+            {/* Input de ML cuando está activo */}
+            {datos.incluir_rodapie && (
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                    Metros lineales de rodapié
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.5"
+                      placeholder={
+                        datos.metros_cuadrados && datos.metros_cuadrados > 0
+                          ? `Estimado: ${Math.ceil(datos.metros_cuadrados * 0.9)} ML`
+                          : 'Ej: 54'
+                      }
+                      value={datos.ml_rodapie ?? ''}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value)
+                        onChange({ ml_rodapie: isNaN(val) ? undefined : val })
+                      }}
+                      className="w-40 px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none text-sm font-medium"
+                      onFocus={e => e.target.style.borderColor = '#134a9c'}
+                      onBlur={e => e.target.style.borderColor = 'rgb(229 231 235)'}
+                    />
+                    <span className="text-gray-500 text-sm font-medium">ML</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Si no sabes el metraje exacto, lo estimamos al 90% de tu área ({datos.metros_cuadrados && datos.metros_cuadrados > 0 ? `~${Math.ceil(datos.metros_cuadrados * 0.9)} ML` : 'según tus m²'}).
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

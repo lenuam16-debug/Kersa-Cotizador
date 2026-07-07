@@ -66,4 +66,5 @@ export interface PasoForm {
   municipio?: string
   fecha_proyecto?: string
   incluir_rodapie?: boolean
+  ml_rodapie?: number
 }
