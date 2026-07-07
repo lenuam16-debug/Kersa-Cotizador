@@ -170,6 +170,44 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
           </div>
         )}
 
+        {/* Rodapié PVC — solo vinil */}
+        {esVinil(servicio) && datos.metros_cuadrados && datos.metros_cuadrados > 0 && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              ¿Deseas incluir rodapié PVC? <span className="text-gray-400 font-normal">(opcional)</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => onChange({ incluir_rodapie: !datos.incluir_rodapie })}
+              className={cn(
+                'w-full flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all',
+                datos.incluir_rodapie
+                  ? 'border-blue-600 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              )}
+            >
+              <div className={cn(
+                'mt-0.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-all',
+                datos.incluir_rodapie ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+              )}>
+                {datos.incluir_rodapie && (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <p className={cn('font-semibold text-sm', datos.incluir_rodapie ? 'text-blue-700' : 'text-gray-700')}>
+                  Sí, incluir rodapié PVC
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  ~{Math.ceil((datos.metros_cuadrados ?? 0) * 0.9)} ML estimados · $9.6/ML · incluye rodapié, instalación y carateo
+                </p>
+              </div>
+            </button>
+          </div>
+        )}
+
         {/* Detalles adicionales */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">

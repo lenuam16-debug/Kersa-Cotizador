@@ -48,9 +48,10 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
   const costoAcond = esLVT ? COSTO_ACOND_M2 * cantidad : 0
   const costoPerfil = esLVT ? COSTO_PERFIL_TERMINACION : 0
 
-  // Rodapié PVC opcional: 10% del metraje cuadrado convertido a ML × $9.6/ML
+  // Rodapié PVC: 90% del metraje cuadrado en ML × $9.6/ML (solo si el cliente lo eligió)
   const PRECIO_RODAPIE_ML = 9.6
-  const mlRodapie = esLVT ? Math.ceil(cantidad * 0.1) : 0
+  const incluyeRodapie = esLVT && !!datos.incluir_rodapie
+  const mlRodapie = incluyeRodapie ? Math.ceil(cantidad * 0.9) : 0
   const costoRodapie = mlRodapie * PRECIO_RODAPIE_ML
 
   // Usamos precio.max como precio estándar (precio completo, sin descuento mínimo)
@@ -185,8 +186,8 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
                 </tr>
               )}
 
-              {/* Fila 4: Rodapié PVC (opcional) */}
-              {esLVT && (
+              {/* Fila 4: Rodapié PVC (solo si el cliente lo eligió) */}
+              {incluyeRodapie && (
                 <tr>
                   <td className="py-2">
                     <p className="font-medium text-gray-800">
