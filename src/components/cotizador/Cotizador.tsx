@@ -138,7 +138,7 @@ export default function Cotizador() {
             {paso === 0 && (
               <PasoServicio
                 seleccionado={datos.servicio}
-                onSelect={(s: Servicio) => actualizar({ servicio: s })}
+                onSelect={(s: Servicio) => { actualizar({ servicio: s }); setPaso(1) }}
               />
             )}
             {paso === 1 && datos.servicio && (
