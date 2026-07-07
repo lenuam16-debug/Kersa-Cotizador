@@ -48,6 +48,11 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
   const costoAcond = esLVT ? COSTO_ACOND_M2 * cantidad : 0
   const costoPerfil = esLVT ? COSTO_PERFIL_TERMINACION : 0
 
+  // Rodapié PVC opcional: 10% del metraje cuadrado convertido a ML × $9.6/ML
+  const PRECIO_RODAPIE_ML = 9.6
+  const mlRodapie = esLVT ? Math.ceil(cantidad * 0.1) : 0
+  const costoRodapie = mlRodapie * PRECIO_RODAPIE_ML
+
   // Usamos precio.max como precio estándar (precio completo, sin descuento mínimo)
   const costoBase = precio ? precio.max : 0
   const total = precio ? costoBase + costoAcond + costoPerfil + (flete ?? 0) : null
@@ -94,7 +99,7 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
           <div className="text-right text-xs leading-relaxed text-gray-600">
             <p className="font-bold text-sm text-gray-800 mb-0.5">KersaDesign</p>
             <p>Caracas, Venezuela</p>
-            <p>Tel: +58 412-123-4567</p>
+            <p>Tel: +58 414-256-8220</p>
             <p>info@kersadesign.com</p>
             <p>kersadesign.com</p>
           </div>
@@ -159,7 +164,7 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
                 <tr>
                   <td className="py-2">
                     <p className="font-medium text-gray-800">Acondicionamiento de piso</p>
-                    <p className="text-xs text-gray-400">Nivelación y preparación de la superficie. <span className="text-amber-600">* El costo puede variar según el tipo de piso existente.</span></p>
+                    <p className="text-xs text-gray-400">Preparación de la superficie, incluye materiales. <span className="text-amber-600">* El costo puede variar según el tipo de piso existente.</span></p>
                   </td>
                   <td className="py-2 text-right text-gray-700">{cantidad} m²</td>
                   <td className="py-2 text-right text-gray-700">${COSTO_ACOND_M2}/m²</td>
@@ -180,7 +185,22 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
                 </tr>
               )}
 
-              {/* Fila 4: Flete */}
+              {/* Fila 4: Rodapié PVC (opcional) */}
+              {esLVT && (
+                <tr>
+                  <td className="py-2">
+                    <p className="font-medium text-gray-800">
+                      Rodapié PVC <span className="text-xs font-normal text-blue-600 bg-blue-50 rounded px-1.5 py-0.5 ml-1">Opcional</span>
+                    </p>
+                    <p className="text-xs text-gray-400">Incluye rodapié, instalación y carateo · estimado ~{mlRodapie} ML (10% del metraje)</p>
+                  </td>
+                  <td className="py-2 text-right text-gray-700">{mlRodapie} ML</td>
+                  <td className="py-2 text-right text-gray-700">${PRECIO_RODAPIE_ML}/ML</td>
+                  <td className="py-2 text-right font-semibold text-gray-800">{formatCurrency(costoRodapie)}</td>
+                </tr>
+              )}
+
+              {/* Fila 5: Flete */}
               {flete !== null && (
                 <tr>
                   <td className="py-2">
@@ -211,7 +231,7 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
                 <p className="text-3xl font-black" style={{ color: '#134a9c' }}>
                   {formatCurrency(total)}
                 </p>
-                <p className="text-xs text-amber-600 font-medium mt-1">* Precio más IVA</p>
+                <p className="text-xs text-amber-600 font-medium mt-1">* Precio más IVA · Precios promocionales para pago en divisa</p>
                 <p className="text-xs text-gray-400 mt-0.5">Referencial, sujeto a visita técnica</p>
               </div>
             </div>
@@ -226,7 +246,7 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
         {/* Footer del documento con botón de descarga */}
         <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
           <p className="text-xs text-gray-400">
-            Presupuesto referencial sujeto a visita técnica.<br />KersaDesign · Caracas, Venezuela · kersadesign.com
+            Presupuesto referencial sujeto a visita técnica.<br />KersaDesign · Urb. Calle Los Huertos, Caracas 1050, Distrito Capital, Venezuela · kersadesign.com
           </p>
           <button
             onClick={() => window.print()}
