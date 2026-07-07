@@ -56,7 +56,7 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
     `Hola, acabo de generar mi cotización #${nroCotizacion} en KersaDesign para ${info.nombre}${colorInfo ? ` (${colorInfo.nombre})` : ''} — ${cantidad} ${info.unidad}${total ? `. Total estimado: ${formatCurrency(total)}` : ''}. Me gustaría más información.`
   )
   const whatsappUrl = `https://wa.me/584142568220?text=${whatsappMsg}`
-  const calendarUrl = 'https://calendar.app.google/M7fVDiT5MbkRt1cC8'
+  const calendarUrl = 'https://calendar.app.google/ETSdfrJ3Ce8VP25q6'
 
   return (
     <div>
