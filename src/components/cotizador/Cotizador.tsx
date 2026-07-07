@@ -26,9 +26,11 @@ export default function Cotizador() {
     if (paso === 1) {
       const esCocina = datos.servicio === 'cocina-modular'
       const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-spc'
+      const tieneColores = esVinil || esCocina
       const cantidad = esCocina ? datos.metros_lineales : datos.metros_cuadrados
       if (!cantidad || cantidad <= 0) return false
       if (esVinil && !datos.tipo_piso_actual) return false
+      if (tieneColores && !datos.color_seleccionado) return false
       return true
     }
     if (paso === 2) {
@@ -170,10 +172,12 @@ export default function Cotizador() {
           {paso === 1 && !puedeAvanzar() && (() => {
             const esCocina = datos.servicio === 'cocina-modular'
             const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-spc'
+            const tieneColores = esVinil || esCocina
             const cantidad = esCocina ? datos.metros_lineales : datos.metros_cuadrados
             const falta = []
             if (!cantidad || cantidad <= 0) falta.push(esCocina ? 'metros lineales de cocina' : 'área aproximada en m²')
             if (esVinil && !datos.tipo_piso_actual) falta.push('tipo de piso actual')
+            if (tieneColores && !datos.color_seleccionado) falta.push('modelo / color')
             return (
               <p className="mt-4 text-center text-sm text-amber-600 font-medium">
                 ⚠ Completa los siguientes campos: {falta.join(' y ')}
