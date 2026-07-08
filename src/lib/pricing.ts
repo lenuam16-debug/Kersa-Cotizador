@@ -86,6 +86,12 @@ export const COLORES_VINIL: { id: string; nombre: string; hex?: string; imagen?:
   { id: 'manitova',    nombre: 'Manitova',    imagen: 'https://kersadesign.com/imagenes/embed_050_5d8dfb39.jpg' },
   { id: 'terry-fox',   nombre: 'Terry Fox',   imagen: 'https://kersadesign.com/imagenes/embed_051_ff504fe1.jpg' },
   { id: 'vicent-bay',  nombre: 'Vicent Bay',  imagen: 'https://kersadesign.com/imagenes/embed_052_3b529724.jpg' },
+  { id: 'laredo',      nombre: 'Laredo',      imagen: 'https://kersadesign.com/imagenes/embed_084_dd57a1d6.jpg' },
+  { id: 'michigan',    nombre: 'Michigan',    imagen: 'https://kersadesign.com/imagenes/embed_085_42f54301.jpg' },
+  { id: 'montana',     nombre: 'Montana',     imagen: 'https://kersadesign.com/imagenes/embed_086_b0daebd0.jpg' },
+  { id: 'oregon',      nombre: 'Oregon',      imagen: 'https://kersadesign.com/imagenes/embed_087_2d17083d.jpg' },
+  { id: 'pasadena',    nombre: 'Pasadena',    imagen: 'https://kersadesign.com/imagenes/embed_088_dc85ef9a.jpg' },
+  { id: 'vermont',     nombre: 'Vermont',     imagen: 'https://kersadesign.com/imagenes/embed_089_653c8c30.jpg' },
 ]
 
 export const COLORES_COCINA: { id: string; nombre: string; hex?: string; imagen?: string }[] = [
