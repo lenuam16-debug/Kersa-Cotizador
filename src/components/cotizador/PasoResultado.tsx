@@ -263,6 +263,19 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
         </div>
       </div>
 
+      {/* CTA Visualizador IA */}
+      {(esLVT || datos.servicio === 'vinil-spc' || datos.servicio === 'cocina-modular') && datos.color_seleccionado && (
+        <a
+          href={`/visualizador?servicio=${datos.servicio}&color=${datos.color_seleccionado}${cotizacionId ? `&cotizacion=${cotizacionId}` : ''}`}
+          className="no-print block bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl px-6 py-5 shadow-sm transition-colors"
+        >
+          <p className="font-bold text-lg flex items-center gap-2">✨ ¿Quieres ver cómo quedaría tu espacio?</p>
+          <p className="text-sm text-indigo-100 mt-1">
+            Sube una foto real de tu ambiente y nuestra IA te mostrará cómo se vería con el color <strong>{datos.color_seleccionado}</strong> que elegiste
+          </p>
+        </a>
+      )}
+
       {/* CTAs: WhatsApp + Agendar visita */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 no-print">
         <a
