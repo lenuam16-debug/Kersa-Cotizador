@@ -195,8 +195,8 @@ export default function Cotizador() {
           {paso === 2 && !puedeAvanzar() && (() => {
             const falta = []
             if (!validNombre(datos.nombre ?? '')) falta.push('nombre completo (nombre y apellido)')
-            if (!validTelefono(datos.telefono ?? '')) falta.push('teléfono válido (0412/0414/0416/0424/0426)')
-            else if (!datos.telefono_verificado) falta.push('verificar el número por WhatsApp')
+            if (!validTelefono(datos.telefono ?? '')) falta.push('teléfono válido (0412/0414/... o +código de país)')
+            else if (!datos.telefono_verificado) falta.push('verificar el número por SMS')
             if (!validEmail(datos.email ?? '')) falta.push('correo electrónico válido')
             if (!datos.ciudad?.trim()) falta.push('estado')
             if (!datos.municipio?.trim()) falta.push('municipio')

@@ -41,7 +41,11 @@ export function validNombre(n: string) {
 }
 
 export function validTelefono(p: string) {
-  return /^(\+?58\s?)?0?(412|414|416|424|426)[\s-]?\d{3}[\s-]?\d{4}$/.test(p.trim())
+  const t = p.trim()
+  // Venezolano: 0414-1234567 o +58 414...
+  if (/^(\+?58\s?)?0?(412|414|416|424|426)[\s-]?\d{3}[\s-]?\d{4}$/.test(t)) return true
+  // Internacional: +código de país seguido de 7 a 14 dígitos
+  return /^\+\d[\d\s-]{7,16}$/.test(t)
 }
 
 export function validEmail(e: string) {
@@ -183,6 +187,11 @@ export default function PasoDatos({ datos, onChange }: Props) {
                 <AlertCircle className="w-3 h-3" /> Formato válido: 0414-1234567 (0412, 0414, 0416, 0424, 0426)
               </p>
             )}
+            {!datos.telefono_verificado && (
+              <p className="text-xs text-gray-400 mt-1">
+                🌍 ¿Estás fuera de Venezuela? Escribe tu número con el código de tu país, ej: +34 612 345 678 (España), +56 9 1234 5678 (Chile), +1 305 123 4567 (USA)
+              </p>
+            )}
 
             {/* Botón verificar / OTP */}
             {!datos.telefono_verificado && telefonoOk && (
@@ -196,12 +205,12 @@ export default function PasoDatos({ datos, onChange }: Props) {
                     style={{ backgroundColor: '#134a9c' }}
                   >
                     {enviandoOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    {enviandoOtp ? 'Enviando...' : 'Verificar número por WhatsApp'}
+                    {enviandoOtp ? 'Enviando...' : 'Verificar número por SMS'}
                   </button>
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs text-gray-600 font-medium">
-                      Ingresa el código de 6 dígitos enviado a tu WhatsApp
+                      Ingresa el código de 6 dígitos enviado por SMS a tu teléfono
                     </p>
                     <div className="flex items-center gap-2">
                       <input
