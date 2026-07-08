@@ -86,16 +86,22 @@ export default function TablaLeads() {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cotizaciones?${params}`, { headers: HEADERS })
       const data: Cotizacion[] = await res.json()
 
-      const filas = data.map(c => ({
-        'Nombre': c.lead?.name ?? '',
-        'Teléfono': c.lead?.telefono ?? '',
-        'Metraje': c.metros_cuadrados ? `${c.metros_cuadrados} m²` : c.metros_lineales ? `${c.metros_lineales} ML` : '',
-        'Monto cotización': c.precio_min > 0 ? `${formatCurrency(c.precio_min)} - ${formatCurrency(c.precio_max)}` : 'Personalizada',
-        'Fecha': c.created_at ? formatDate(c.created_at) : '',
-      }))
+      const filas = data.map(c => {
+        // La ciudad se guarda como "Estado - Municipio"
+        const partes = (c.lead?.ciudad ?? '').split(' - ')
+        const municipio = partes.length > 1 ? partes[1] : (partes[0] ?? '')
+        return {
+          'Nombre': c.lead?.name ?? '',
+          'Teléfono': c.lead?.telefono ?? '',
+          'Municipio': municipio,
+          'Metraje': c.metros_cuadrados ? `${c.metros_cuadrados} m²` : c.metros_lineales ? `${c.metros_lineales} ML` : '',
+          'Monto cotización': c.precio_min > 0 ? `${formatCurrency(c.precio_min)} - ${formatCurrency(c.precio_max)}` : 'Personalizada',
+          'Fecha': c.created_at ? formatDate(c.created_at) : '',
+        }
+      })
 
       const hoja = XLSX.utils.json_to_sheet(filas)
-      hoja['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 14 }, { wch: 22 }, { wch: 18 }]
+      hoja['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 22 }, { wch: 18 }]
       const libro = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(libro, hoja, 'Reporte semanal')
 

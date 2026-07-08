@@ -2,7 +2,78 @@
 
 import { useState, useEffect } from 'react'
 import TablaLeads from '@/components/admin/TablaLeads'
-import { Users, FileText, Clock } from 'lucide-react'
+import { Users, FileText, Clock, Lock, Loader2 } from 'lucide-react'
+
+const ADMIN_SESSION_KEY = 'kersa_admin_auth'
+
+function AdminGate({ children }: { children: React.ReactNode }) {
+  const [autorizado, setAutorizado] = useState(false)
+  const [verificando, setVerificando] = useState(true)
+  const [clave, setClave] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [cargando, setCargando] = useState(false)
+
+  useEffect(() => {
+    setAutorizado(sessionStorage.getItem(ADMIN_SESSION_KEY) === '1')
+    setVerificando(false)
+  }, [])
+
+  const entrar = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCargando(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: clave }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Clave incorrecta')
+      sessionStorage.setItem(ADMIN_SESSION_KEY, '1')
+      setAutorizado(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al verificar')
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  if (verificando) return null
+
+  if (!autorizado) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <form onSubmit={entrar} className="bg-white rounded-3xl shadow-xl p-8 w-full max-w-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Lock className="w-5 h-5 text-blue-600" />
+            <h1 className="text-lg font-bold text-gray-800">Acceso administrador</h1>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">Ingresa la clave para ver el panel de leads y cotizaciones</p>
+          <input
+            type="password"
+            autoFocus
+            placeholder="Clave de acceso"
+            value={clave}
+            onChange={(e) => setClave(e.target.value)}
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 mb-3"
+          />
+          {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
+          <button
+            type="submit"
+            disabled={cargando || !clave}
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50"
+          >
+            {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {cargando ? 'Verificando...' : 'Entrar'}
+          </button>
+        </form>
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://awscrogqprosivmtgkio.supabase.co'
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c2Nyb2dxcHJvc2l2bXRna2lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjQ1NDIsImV4cCI6MjA5NzkwMDU0Mn0.WcYei2z8UGNCTQaWKSTNeWEJByWKTNqHyyCrwcPPnTQ'
@@ -13,6 +84,14 @@ const HEADERS = {
 }
 
 export default function AdminPage() {
+  return (
+    <AdminGate>
+      <AdminContent />
+    </AdminGate>
+  )
+}
+
+function AdminContent() {
   const [stats, setStats] = useState({ totalLeads: 0, totalCotizaciones: 0, nuevas: 0 })
 
   useEffect(() => {
