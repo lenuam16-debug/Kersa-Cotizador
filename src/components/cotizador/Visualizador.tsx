@@ -169,14 +169,22 @@ export default function Visualizador() {
         }
 
         // Variación sutil de brillo por tablón (simula vetas distintas)
-        const bright = ((rowNum * 7 + col * 11) % 10 - 5) * 0.006
+        const bright = ((rowNum * 7 + col * 11) % 10 - 5) * 0.009
         tCtx.fillStyle = bright > 0 ? `rgba(255,255,255,${bright})` : `rgba(0,0,0,${Math.abs(bright)})`
         tCtx.fillRect(dx, Math.round(currentY), pW, pH)
+
+        // Junta vertical entre tablones (bisel: línea oscura + brillo al lado)
+        tCtx.fillStyle = 'rgba(0,0,0,0.13)'
+        tCtx.fillRect(dx + pW - 1, Math.round(currentY), 1, pH)
+        tCtx.fillStyle = 'rgba(255,255,255,0.07)'
+        tCtx.fillRect(dx + pW, Math.round(currentY), 1, pH)
       }
 
-      // Junta horizontal casi imperceptible
-      tCtx.fillStyle = 'rgba(0,0,0,0.06)'
+      // Junta horizontal con bisel sutil (sombra + luz)
+      tCtx.fillStyle = 'rgba(0,0,0,0.12)'
       tCtx.fillRect(0, Math.round(currentY) + pH - 1, W, 1)
+      tCtx.fillStyle = 'rgba(255,255,255,0.06)'
+      tCtx.fillRect(0, Math.round(currentY) + pH, W, 1)
 
       currentY += pH
       rowNum++
@@ -191,34 +199,43 @@ export default function Visualizador() {
     ctx.globalAlpha = 1.0
     ctx.drawImage(texCanvas, 0, 0)
 
-    // Recuperar solo el gradiente de iluminación general del cuarto (sin patrón del piso viejo)
-    // Aplicamos blur fuerte para eliminar el detalle de baldosas/juntas y conservar solo
-    // el gradiente de luz ambiental (más oscuro al fondo, más claro al frente, sombras de muebles)
+    // Iluminación realista: multiplicar la textura por el mapa de luz del cuarto original.
+    // Se difumina lo justo para borrar juntas/baldosas del piso viejo pero conservar
+    // sombras de muebles y la caída natural de la luz; se normaliza por el brillo medio
+    // del suelo para no oscurecer ni lavar el color de la textura.
     const litCanvas = document.createElement('canvas')
     litCanvas.width = W; litCanvas.height = H
     const litCtx = litCanvas.getContext('2d')!
-    const blurPx = Math.round(W * 0.04) // ~36px de blur en imagen 900px — elimina detalles pequeños
+    const blurPx = Math.round(W * 0.018)
     litCtx.filter = `blur(${blurPx}px)`
     litCtx.drawImage(roomImg, 0, 0, W, H)
     litCtx.filter = 'none'
 
-    // Convertir a escala de grises y enmascarar al área del suelo
     const litData = litCtx.getImageData(0, 0, W, H)
     const mkData = maskCtx.getImageData(0, 0, W, H)
+
+    // Brillo medio del área del suelo
+    let sumLum = 0, nLum = 0
     for (let i = 0; i < litData.data.length; i += 4) {
-      const g = litData.data[i] * 0.299 + litData.data[i + 1] * 0.587 + litData.data[i + 2] * 0.114
-      litData.data[i] = g; litData.data[i + 1] = g; litData.data[i + 2] = g
-      litData.data[i + 3] = mkData.data[i + 3] > 64 ? 255 : 0
+      if (mkData.data[i + 3] > 64) {
+        sumLum += litData.data[i] * 0.299 + litData.data[i + 1] * 0.587 + litData.data[i + 2] * 0.114
+        nLum++
+      }
     }
-    litCtx.putImageData(litData, 0, 0)
+    const avgLum = Math.max(1, sumLum / Math.max(1, nLum))
 
-    // Aplicar gradiente de iluminación en luminosity — suave para no aplanar la textura
-    ctx.globalCompositeOperation = 'luminosity'
-    ctx.globalAlpha = 0.35
-    ctx.drawImage(litCanvas, 0, 0)
-
-    ctx.globalAlpha = 1
-    ctx.globalCompositeOperation = 'source-over'
+    // Sombrear la textura píxel a píxel según la luz original
+    const outData = ctx.getImageData(0, 0, W, H)
+    for (let i = 0; i < outData.data.length; i += 4) {
+      if (mkData.data[i + 3] > 64) {
+        const g = litData.data[i] * 0.299 + litData.data[i + 1] * 0.587 + litData.data[i + 2] * 0.114
+        const shade = Math.max(0.45, Math.min(1.30, g / avgLum))
+        outData.data[i] = Math.min(255, outData.data[i] * shade)
+        outData.data[i + 1] = Math.min(255, outData.data[i + 1] * shade)
+        outData.data[i + 2] = Math.min(255, outData.data[i + 2] * shade)
+      }
+    }
+    ctx.putImageData(outData, 0, 0)
 
     // Re-componer elementos no-suelo (sillas, muebles) encima del nuevo piso
     // para que se vean naturalmente posados sobre el material sin bordes artificiales
