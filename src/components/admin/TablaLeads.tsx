@@ -5,7 +5,8 @@ import { Cotizacion, EstadoSeguimiento } from '@/types'
 import { SERVICIOS } from '@/lib/pricing'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { Search, Phone, Mail, RefreshCw } from 'lucide-react'
+import { Search, Phone, Mail, RefreshCw, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://awscrogqprosivmtgkio.supabase.co'
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c2Nyb2dxcHJvc2l2bXRna2lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjQ1NDIsImV4cCI6MjA5NzkwMDU0Mn0.WcYei2z8UGNCTQaWKSTNeWEJByWKTNqHyyCrwcPPnTQ'
@@ -27,6 +28,7 @@ export default function TablaLeads() {
   const [filtroServicio, setFiltroServicio] = useState('')
   const [detalle, setDetalle] = useState<Cotizacion | null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [exportando, setExportando] = useState(false)
 
   const cargar = async () => {
     setCargando(true)
@@ -70,6 +72,40 @@ export default function TablaLeads() {
 
   const estadoInfo = (e: EstadoSeguimiento) => ESTADOS.find(s => s.valor === e)!
 
+  const exportarReporteSemanal = async () => {
+    setExportando(true)
+    try {
+      const desde = new Date()
+      desde.setDate(desde.getDate() - 7)
+
+      const params = new URLSearchParams()
+      params.set('select', '*,lead:leads(*)')
+      params.set('order', 'created_at.desc')
+      params.set('created_at', `gte.${desde.toISOString()}`)
+
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cotizaciones?${params}`, { headers: HEADERS })
+      const data: Cotizacion[] = await res.json()
+
+      const filas = data.map(c => ({
+        'Nombre': c.lead?.name ?? '',
+        'Teléfono': c.lead?.telefono ?? '',
+        'Metraje': c.metros_cuadrados ? `${c.metros_cuadrados} m²` : c.metros_lineales ? `${c.metros_lineales} ML` : '',
+        'Monto cotización': c.precio_min > 0 ? `${formatCurrency(c.precio_min)} - ${formatCurrency(c.precio_max)}` : 'Personalizada',
+        'Fecha': c.created_at ? formatDate(c.created_at) : '',
+      }))
+
+      const hoja = XLSX.utils.json_to_sheet(filas)
+      hoja['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 14 }, { wch: 22 }, { wch: 18 }]
+      const libro = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(libro, hoja, 'Reporte semanal')
+
+      const hoy = new Date().toISOString().slice(0, 10)
+      XLSX.writeFile(libro, `reporte-cotizaciones-${hoy}.xlsx`)
+    } finally {
+      setExportando(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Filtros */}
@@ -111,6 +147,15 @@ export default function TablaLeads() {
           className="bg-white border border-gray-200 rounded-xl p-2 hover:bg-gray-50"
         >
           <RefreshCw className="w-4 h-4 text-gray-500" />
+        </button>
+
+        <button
+          onClick={exportarReporteSemanal}
+          disabled={exportando}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+        >
+          <Download className="w-4 h-4" />
+          {exportando ? 'Generando...' : 'Descargar reporte semanal'}
         </button>
       </div>
 
