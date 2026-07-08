@@ -1,9 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { PasoForm } from '@/types'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth'
+import { auth } from '@/lib/firebase'
+
+// Convierte 0414-1234567 → +584141234567 (E.164)
+function toE164(phone: string): string {
+  const p = phone.replace(/[\s\-()]/g, '')
+  if (p.startsWith('+')) return p
+  if (p.startsWith('58')) return '+' + p
+  if (p.startsWith('0')) return '+58' + p.slice(1)
+  return '+58' + p
+}
 
 interface Props {
   datos: PasoForm
@@ -47,6 +58,8 @@ export default function PasoDatos({ datos, onChange }: Props) {
   const [enviandoOtp, setEnviandoOtp] = useState(false)
   const [verificandoOtp, setVerificandoOtp] = useState(false)
   const [otpError, setOtpError] = useState<string | null>(null)
+  const confirmationRef = useRef<ConfirmationResult | null>(null)
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
 
   // Touched para mostrar errores solo tras interacción
   const [touched, setTouched] = useState<Record<string, boolean>>({})
@@ -60,16 +73,21 @@ export default function PasoDatos({ datos, onChange }: Props) {
     setEnviandoOtp(true)
     setOtpError(null)
     try {
-      const res = await fetch('/api/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: datos.telefono }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error enviando código')
+      if (!recaptchaRef.current) {
+        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' })
+      }
+      confirmationRef.current = await signInWithPhoneNumber(auth, toE164(datos.telefono ?? ''), recaptchaRef.current)
       setOtpEnviado(true)
     } catch (e) {
-      setOtpError(e instanceof Error ? e.message : 'Error enviando código')
+      recaptchaRef.current?.clear()
+      recaptchaRef.current = null
+      const code = (e as { code?: string })?.code ?? ''
+      const msg =
+        code === 'auth/too-many-requests' ? 'Demasiados intentos. Espera unos minutos e intenta de nuevo.' :
+        code === 'auth/invalid-phone-number' ? 'Número de teléfono inválido.' :
+        code === 'auth/quota-exceeded' ? 'Se alcanzó el límite diario de SMS. Intenta mañana.' :
+        'Error enviando el SMS. Intenta de nuevo.'
+      setOtpError(msg)
     } finally {
       setEnviandoOtp(false)
     }
@@ -79,16 +97,16 @@ export default function PasoDatos({ datos, onChange }: Props) {
     setVerificandoOtp(true)
     setOtpError(null)
     try {
-      const res = await fetch('/api/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: datos.telefono, code: codigoInput }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Código incorrecto')
+      if (!confirmationRef.current) throw new Error('Solicita un código primero')
+      await confirmationRef.current.confirm(codigoInput)
       onChange({ telefono_verificado: true })
     } catch (e) {
-      setOtpError(e instanceof Error ? e.message : 'Error verificando código')
+      const code = (e as { code?: string })?.code ?? ''
+      const msg =
+        code === 'auth/invalid-verification-code' ? 'Código incorrecto. Intenta de nuevo.' :
+        code === 'auth/code-expired' ? 'El código expiró. Solicita uno nuevo.' :
+        'Error verificando el código.'
+      setOtpError(msg)
     } finally {
       setVerificandoOtp(false)
     }
@@ -275,6 +293,9 @@ export default function PasoDatos({ datos, onChange }: Props) {
         <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-500">
           🔒 Tus datos están seguros. Solo los usamos para enviarte tu cotización y hacer seguimiento a tu proyecto. No compartimos tu información con terceros.
         </div>
+
+        {/* Contenedor del reCAPTCHA invisible de Firebase */}
+        <div id="recaptcha-container" />
       </div>
     </div>
   )
