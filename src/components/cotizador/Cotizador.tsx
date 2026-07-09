@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PasoForm, Servicio } from '@/types'
 import BarraProgreso from './BarraProgreso'
 import PasoServicio from './PasoServicio'
@@ -10,6 +10,7 @@ import PasoResultado from './PasoResultado'
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { validNombre, validTelefono, validEmail } from './PasoDatos'
+import { track } from '@/lib/track'
 
 const TOTAL_PASOS = 4
 
@@ -21,6 +22,15 @@ export default function Cotizador() {
   const [cotizacionId, setCotizacionId] = useState<string | undefined>()
 
   const actualizar = (d: Partial<PasoForm>) => setDatos(prev => ({ ...prev, ...d }))
+
+  // Embudo: registrar llegada y cada cambio de paso
+  useEffect(() => { track('1_llego_al_cotizador') }, [])
+  useEffect(() => {
+    if (paso === 1) track('2_eligio_servicio', datos.servicio)
+    if (paso === 2) track('3_completo_especificaciones', `${datos.metros_cuadrados ?? datos.metros_lineales} - ${datos.color_seleccionado}`)
+    if (paso === 3) track('6_vio_cotizacion')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paso])
 
   const puedeAvanzar = () => {
     if (paso === 0) return !!datos.servicio
@@ -111,6 +121,7 @@ export default function Cotizador() {
       setCotizacionId(cot.id)
       setPaso(3)
     } catch (e) {
+      track('error_al_enviar', e instanceof Error ? e.message : String(e))
       setError('Error: ' + (e instanceof Error ? e.message : String(e)))
     } finally {
       setEnviando(false)

@@ -6,6 +6,7 @@ import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
+import { track } from '@/lib/track'
 
 // Convierte 0414-1234567 → +584141234567 (E.164)
 function toE164(phone: string): string {
@@ -81,6 +82,7 @@ export default function PasoDatos({ datos, onChange }: Props) {
         recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' })
       }
       confirmationRef.current = await signInWithPhoneNumber(auth, toE164(datos.telefono ?? ''), recaptchaRef.current)
+      track('4_sms_enviado')
       setOtpEnviado(true)
     } catch (e) {
       recaptchaRef.current?.clear()
@@ -91,6 +93,7 @@ export default function PasoDatos({ datos, onChange }: Props) {
         code === 'auth/invalid-phone-number' ? 'Número de teléfono inválido.' :
         code === 'auth/quota-exceeded' ? 'Se alcanzó el límite diario de SMS. Intenta mañana.' :
         'Error enviando el SMS. Intenta de nuevo.'
+      track('4x_error_sms', code || String(e))
       setOtpError(msg)
     } finally {
       setEnviandoOtp(false)
@@ -103,6 +106,7 @@ export default function PasoDatos({ datos, onChange }: Props) {
     try {
       if (!confirmationRef.current) throw new Error('Solicita un código primero')
       await confirmationRef.current.confirm(codigoInput)
+      track('5_telefono_verificado')
       onChange({ telefono_verificado: true })
     } catch (e) {
       const code = (e as { code?: string })?.code ?? ''
@@ -110,6 +114,7 @@ export default function PasoDatos({ datos, onChange }: Props) {
         code === 'auth/invalid-verification-code' ? 'Código incorrecto. Intenta de nuevo.' :
         code === 'auth/code-expired' ? 'El código expiró. Solicita uno nuevo.' :
         'Error verificando el código.'
+      track('5x_error_codigo', code || String(e))
       setOtpError(msg)
     } finally {
       setVerificandoOtp(false)

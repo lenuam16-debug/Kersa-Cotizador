@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import TablaLeads from '@/components/admin/TablaLeads'
+import Embudo from '@/components/admin/Embudo'
 import { Users, FileText, Clock, Lock, Loader2 } from 'lucide-react'
 
 const ADMIN_SESSION_KEY = 'kersa_admin_auth'
@@ -156,6 +157,10 @@ function AdminContent() {
               <p className="text-3xl font-bold text-gray-800">{stats.nuevas}</p>
             </div>
           </div>
+        </div>
+
+        <div className="mb-8">
+          <Embudo />
         </div>
 
         <h2 className="text-lg font-bold text-gray-700 mb-4">Cotizaciones y seguimiento</h2>
