@@ -2,6 +2,7 @@
 
 import { Servicio, PasoForm, TipoPiso, PISOS_SIN_ACONDICIONAMIENTO } from '@/types'
 import { SERVICIOS, COLORES_VINIL, COLORES_COCINA, COSTO_ACONDICIONAMIENTO } from '@/lib/pricing'
+import { CIUDADES, CIUDADES_MUNICIPIOS, minimoM2Vinil } from '@/lib/ubicaciones'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -33,6 +34,15 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
     !!datos.tipo_piso_actual &&
     !PISOS_SIN_ACONDICIONAMIENTO.includes(datos.tipo_piso_actual)
 
+  const municipios = datos.ciudad ? CIUDADES_MUNICIPIOS[datos.ciudad] ?? [] : []
+  const minM2 = esVinil(servicio) ? minimoM2Vinil(datos.municipio) : 0
+  const metrajeInsuficiente =
+    esVinil(servicio) &&
+    !!datos.municipio &&
+    !!datos.metros_cuadrados &&
+    datos.metros_cuadrados > 0 &&
+    datos.metros_cuadrados < minM2
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-800 mb-2">
@@ -41,6 +51,40 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
       <p className="text-gray-500 mb-8">Cuéntanos sobre el espacio a intervenir</p>
 
       <div className="space-y-6">
+        {/* Ubicación del proyecto */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">¿Dónde está el proyecto? — Estado</label>
+            <select
+              value={datos.ciudad ?? ''}
+              onChange={(e) => onChange({ ciudad: e.target.value, municipio: '' })}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none bg-white"
+            >
+              <option value="">Selecciona tu estado / ciudad</option>
+              {CIUDADES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Municipio</label>
+            <select
+              value={datos.municipio ?? ''}
+              onChange={(e) => onChange({ municipio: e.target.value })}
+              disabled={!datos.ciudad}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none bg-white disabled:opacity-50"
+            >
+              <option value="">Selecciona tu municipio</option>
+              {municipios.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Aviso de metraje mínimo según municipio */}
+        {esVinil(servicio) && datos.municipio && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-800">
+            📐 Para tu municipio ({datos.municipio}) el metraje mínimo de instalación es de <strong>{minM2} m²</strong>.
+          </div>
+        )}
+
         {/* Medidas */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -70,6 +114,11 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
               ? 'Ancho × Largo del espacio. Si no lo sabes exacto, pon un estimado.'
               : 'Longitud total de los módulos de cocina que necesitas.'}
           </p>
+          {metrajeInsuficiente && (
+            <p className="text-sm text-red-600 font-medium mt-2">
+              ⚠ El metraje mínimo para {datos.municipio} es de {minM2} m². Aumenta el área para poder cotizar.
+            </p>
+          )}
         </div>
 
         {/* Tipo de piso actual — solo vinil */}

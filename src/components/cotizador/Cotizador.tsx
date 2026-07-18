@@ -11,6 +11,7 @@ import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { validNombre, validTelefono, validEmail } from './PasoDatos'
 import { track } from '@/lib/track'
+import { minimoM2Vinil } from '@/lib/ubicaciones'
 
 const TOTAL_PASOS = 4
 
@@ -39,7 +40,9 @@ export default function Cotizador() {
       const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-spc'
       const tieneColores = esVinil || esCocina
       const cantidad = esCocina ? datos.metros_lineales : datos.metros_cuadrados
+      if (!datos.ciudad?.trim() || !datos.municipio?.trim()) return false
       if (!cantidad || cantidad <= 0) return false
+      if (esVinil && cantidad < minimoM2Vinil(datos.municipio)) return false
       if (esVinil && !datos.tipo_piso_actual) return false
       if (tieneColores && !datos.color_seleccionado) return false
       return true
@@ -49,9 +52,7 @@ export default function Cotizador() {
         validNombre(datos.nombre ?? '') &&
         validTelefono(datos.telefono ?? '') &&
         datos.telefono_verificado &&
-        validEmail(datos.email ?? '') &&
-        datos.ciudad?.trim() &&
-        datos.municipio?.trim()
+        validEmail(datos.email ?? '')
       )
     }
     return true
@@ -194,12 +195,15 @@ export default function Cotizador() {
             const tieneColores = esVinil || esCocina
             const cantidad = esCocina ? datos.metros_lineales : datos.metros_cuadrados
             const falta = []
+            if (!datos.ciudad?.trim()) falta.push('estado')
+            if (datos.ciudad?.trim() && !datos.municipio?.trim()) falta.push('municipio')
             if (!cantidad || cantidad <= 0) falta.push(esCocina ? 'metros lineales de cocina' : 'área aproximada en m²')
+            else if (esVinil && datos.municipio && cantidad < minimoM2Vinil(datos.municipio)) falta.push(`mínimo ${minimoM2Vinil(datos.municipio)} m² para ${datos.municipio}`)
             if (esVinil && !datos.tipo_piso_actual) falta.push('tipo de piso actual')
             if (tieneColores && !datos.color_seleccionado) falta.push('modelo / color')
             return (
               <p className="mt-4 text-center text-sm text-amber-600 font-medium">
-                ⚠ Completa los siguientes campos: {falta.join(' y ')}
+                ⚠ Completa los siguientes campos: {falta.join(' · ')}
               </p>
             )
           })()}
@@ -209,8 +213,6 @@ export default function Cotizador() {
             if (!validTelefono(datos.telefono ?? '')) falta.push('teléfono válido (0412/0414/... o +código de país)')
             else if (!datos.telefono_verificado) falta.push('verificar el número por SMS')
             if (!validEmail(datos.email ?? '')) falta.push('correo electrónico válido')
-            if (!datos.ciudad?.trim()) falta.push('estado')
-            if (!datos.municipio?.trim()) falta.push('municipio')
             return (
               <p className="mt-4 text-center text-sm text-amber-600 font-medium">
                 ⚠ Falta: {falta.join(' · ')}

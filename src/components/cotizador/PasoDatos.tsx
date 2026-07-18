@@ -22,19 +22,6 @@ interface Props {
   onChange: (d: Partial<PasoForm>) => void
 }
 
-const CIUDADES_MUNICIPIOS: Record<string, string[]> = {
-  'Caracas (Distrito Capital)': ['Libertador'],
-  'Miranda': [
-    'Baruta', 'Chacao', 'El Hatillo', 'Sucre', 'Zamora',
-    'Guaicaipuro', 'Acevedo', 'Brión', 'Buroz', 'Cristóbal Rojas',
-    'Independencia', 'Lander', 'Los Salias', 'Páez', 'Paz Castillo',
-    'Pedro Gual', 'Urdaneta',
-  ],
-  'La Guaira (Vargas)': ['Vargas'],
-}
-
-const CIUDADES = Object.keys(CIUDADES_MUNICIPIOS)
-
 // ── Validaciones ──────────────────────────────────────────────
 export function validNombre(n: string) {
   const trimmed = n.trim()
@@ -55,8 +42,6 @@ export function validEmail(e: string) {
 
 // ── Componente ────────────────────────────────────────────────
 export default function PasoDatos({ datos, onChange }: Props) {
-  const municipios = datos.ciudad ? CIUDADES_MUNICIPIOS[datos.ciudad] ?? [] : []
-
   // OTP state
   const [otpEnviado, setOtpEnviado] = useState(false)
   const [codigoInput, setCodigoInput] = useState('')
@@ -275,33 +260,6 @@ export default function PasoDatos({ datos, onChange }: Props) {
               <AlertCircle className="w-3 h-3" /> Ingresa un correo electrónico válido
             </p>
           )}
-        </div>
-
-        {/* Ciudad + Municipio */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Estado *</label>
-            <select
-              value={datos.ciudad ?? ''}
-              onChange={(e) => { onChange({ ciudad: e.target.value, municipio: '' }); touch('ciudad') }}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none bg-white"
-            >
-              <option value="">Selecciona tu estado / ciudad</option>
-              {CIUDADES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Municipio *</label>
-            <select
-              value={datos.municipio ?? ''}
-              onChange={(e) => onChange({ municipio: e.target.value })}
-              disabled={!datos.ciudad}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none bg-white disabled:opacity-50"
-            >
-              <option value="">Selecciona tu municipio</option>
-              {municipios.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
         </div>
 
         <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-500">

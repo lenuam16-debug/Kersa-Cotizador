@@ -5,7 +5,8 @@ import { Cotizacion, EstadoSeguimiento } from '@/types'
 import { SERVICIOS } from '@/lib/pricing'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { Search, Phone, Mail, RefreshCw, Download } from 'lucide-react'
+import { Search, Phone, Mail, RefreshCw, Download, Trash2, FileDown } from 'lucide-react'
+import { abrirPDFCotizacion } from '@/lib/cotizacion-pdf'
 import * as XLSX from 'xlsx'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://awscrogqprosivmtgkio.supabase.co'
@@ -29,6 +30,8 @@ export default function TablaLeads() {
   const [detalle, setDetalle] = useState<Cotizacion | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [exportando, setExportando] = useState(false)
+  const [confirmarEliminar, setConfirmarEliminar] = useState<Cotizacion | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   const cargar = async () => {
     setCargando(true)
@@ -71,6 +74,18 @@ export default function TablaLeads() {
   }
 
   const estadoInfo = (e: EstadoSeguimiento) => ESTADOS.find(s => s.valor === e)!
+
+  const eliminar = async (c: Cotizacion) => {
+    setEliminando(true)
+    await fetch(`${SUPABASE_URL}/rest/v1/cotizaciones?id=eq.${c.id}`, {
+      method: 'DELETE',
+      headers: HEADERS,
+    })
+    setConfirmarEliminar(null)
+    setDetalle(null)
+    await cargar()
+    setEliminando(false)
+  }
 
   const exportarReporteSemanal = async () => {
     setExportando(true)
@@ -220,12 +235,21 @@ export default function TablaLeads() {
                         {c.created_at ? formatDate(c.created_at) : '—'}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => setDetalle(c)}
-                          className="text-xs text-blue-700 hover:text-blue-800 font-medium"
-                        >
-                          Ver detalle
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setDetalle(c)}
+                            className="text-xs text-blue-700 hover:text-blue-800 font-medium"
+                          >
+                            Ver detalle
+                          </button>
+                          <button
+                            onClick={() => setConfirmarEliminar(c)}
+                            className="text-gray-300 hover:text-red-500 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -309,6 +333,54 @@ export default function TablaLeads() {
                   {guardando ? 'Guardando...' : 'Guardar notas'}
                 </button>
               </div>
+
+              {/* PDF + Eliminar */}
+              <div className="pt-2 border-t border-gray-100 space-y-2">
+                <button
+                  onClick={() => abrirPDFCotizacion(detalle)}
+                  className="w-full flex items-center justify-center gap-2 text-blue-700 hover:bg-blue-50 border border-blue-200 rounded-xl py-2 text-sm font-medium transition-colors"
+                >
+                  <FileDown className="w-4 h-4" />
+                  Descargar cotización en PDF
+                </button>
+                <button
+                  onClick={() => setConfirmarEliminar(detalle)}
+                  className="w-full flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 border border-red-200 rounded-xl py-2 text-sm font-medium transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Eliminar cotización
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmación eliminar */}
+      {confirmarEliminar && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4" onClick={() => setConfirmarEliminar(null)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-red-500" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 text-center mb-1">¿Eliminar cotización?</h3>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Se eliminará el registro de <span className="font-semibold text-gray-700">{confirmarEliminar.lead?.name ?? 'este cliente'}</span>. Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmarEliminar(null)}
+                className="flex-1 border border-gray-200 rounded-xl py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => eliminar(confirmarEliminar)}
+                disabled={eliminando}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-2 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {eliminando ? 'Eliminando...' : 'Sí, eliminar'}
+              </button>
             </div>
           </div>
         </div>
@@ -316,4 +388,3 @@ export default function TablaLeads() {
     </div>
   )
 }
-
