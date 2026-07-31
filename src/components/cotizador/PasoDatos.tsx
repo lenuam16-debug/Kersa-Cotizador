@@ -64,10 +64,14 @@ export default function PasoDatos({ datos, onChange }: Props) {
     setOtpError(null)
     try {
       if (!recaptchaRef.current) {
-        // clear() no siempre vacía el div; un residuo provoca
+        // grecaptcha registra el elemento por referencia interna: vaciarlo no
+        // basta, hay que reemplazar el nodo para evitar
         // "reCAPTCHA has already been rendered in this element"
         const container = document.getElementById('recaptcha-container')
-        if (container) container.innerHTML = ''
+        if (container?.parentNode) {
+          const fresh = container.cloneNode(false) as HTMLElement
+          container.parentNode.replaceChild(fresh, container)
+        }
         recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' })
       }
       confirmationRef.current = await signInWithPhoneNumber(auth, toE164(datos.telefono ?? ''), recaptchaRef.current)
