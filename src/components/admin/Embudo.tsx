@@ -23,34 +23,35 @@ const ERRORES: { evento: string; label: string }[] = [
 
 export default function Embudo() {
   const [conteos, setConteos] = useState<Record<string, number>>({})
-  const [errores, setErrores] = useState<{ evento: string; detalles: string | null; n: number }[]>([])
+  const [errores, setErrores] = useState<{ evento: string; detalles: string | null; n: number; ultimo: string }[]>([])
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
     const load = async () => {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/funnel_events?select=session_id,evento,detalles&order=created_at.desc&limit=5000`,
+        `${SUPABASE_URL}/rest/v1/funnel_events?select=session_id,evento,detalles,created_at&order=created_at.desc&limit=5000`,
         { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
       )
       if (!res.ok) { setCargando(false); return }
-      const rows: { session_id: string; evento: string; detalles: string | null }[] = await res.json()
+      const rows: { session_id: string; evento: string; detalles: string | null; created_at: string }[] = await res.json()
 
       // Sesiones únicas por evento
       const porEvento: Record<string, Set<string>> = {}
-      const errAgg: Record<string, number> = {}
+      const errAgg: Record<string, { n: number; ultimo: string }> = {}
       rows.forEach(r => {
         porEvento[r.evento] = porEvento[r.evento] ?? new Set()
         porEvento[r.evento].add(r.session_id)
         if (r.evento.includes('x_') || r.evento.startsWith('error')) {
           const k = `${r.evento}|${r.detalles ?? ''}`
-          errAgg[k] = (errAgg[k] ?? 0) + 1
+          // rows viene en orden descendente: la primera vez que vemos la clave es la ocurrencia más reciente
+          errAgg[k] = { n: (errAgg[k]?.n ?? 0) + 1, ultimo: errAgg[k]?.ultimo ?? r.created_at }
         }
       })
       setConteos(Object.fromEntries(Object.entries(porEvento).map(([k, v]) => [k, v.size])))
-      setErrores(Object.entries(errAgg).map(([k, n]) => {
+      setErrores(Object.entries(errAgg).map(([k, v]) => {
         const [evento, detalles] = k.split('|')
-        return { evento, detalles: detalles || null, n }
-      }).sort((a, b) => b.n - a.n))
+        return { evento, detalles: detalles || null, n: v.n, ultimo: v.ultimo }
+      }).sort((a, b) => b.ultimo.localeCompare(a.ultimo)))
       setCargando(false)
     }
     load()
@@ -99,9 +100,14 @@ export default function Embudo() {
         <div className="mt-6 pt-4 border-t border-gray-100">
           <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Errores registrados</p>
           {errores.slice(0, 10).map((e, i) => (
-            <div key={i} className="flex justify-between text-xs text-gray-600 py-1">
+            <div key={i} className="flex justify-between items-baseline gap-3 text-xs text-gray-600 py-1">
               <span>{ERRORES.find(x => x.evento === e.evento)?.label ?? e.evento}{e.detalles ? ` — ${e.detalles}` : ''}</span>
-              <span className="font-semibold text-red-500">{e.n}×</span>
+              <span className="flex items-baseline gap-2 flex-shrink-0">
+                <span className="text-gray-400">
+                  último: {new Date(e.ultimo).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className="font-semibold text-red-500">{e.n}×</span>
+              </span>
             </div>
           ))}
         </div>
