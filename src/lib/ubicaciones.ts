@@ -12,7 +12,7 @@ export const CIUDADES_MUNICIPIOS: Record<string, string[]> = {
 export const CIUDADES = Object.keys(CIUDADES_MUNICIPIOS)
 
 // Municipios con mínimo reducido de 15 m² para piso vinil
-const MUNICIPIOS_MIN_15 = ['Chacao', 'Sucre', 'Baruta']
+const MUNICIPIOS_MIN_15 = ['Chacao', 'Sucre', 'Baruta', 'Libertador']
 
 export function minimoM2Vinil(municipio?: string): number {
   return municipio && MUNICIPIOS_MIN_15.includes(municipio) ? 15 : 30
