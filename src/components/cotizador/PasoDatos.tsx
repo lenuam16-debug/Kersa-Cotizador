@@ -17,6 +17,15 @@ function toE164(phone: string): string {
   return '+58' + p
 }
 
+// Respaldo por WhatsApp (otp-wa): solo celulares venezolanos, que son los que
+// el filtro antifraude de SMS de Google bloquea de forma intermitente
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://awscrogqprosivmtgkio.supabase.co'
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c2Nyb2dxcHJvc2l2bXRna2lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjQ1NDIsImV4cCI6MjA5NzkwMDU0Mn0.WcYei2z8UGNCTQaWKSTNeWEJByWKTNqHyyCrwcPPnTQ'
+
+function esCelularVE(phone: string): boolean {
+  return /^58(412|414|416|424|426)\d{7}$/.test(toE164(phone).slice(1))
+}
+
 interface Props {
   datos: PasoForm
   onChange: (d: Partial<PasoForm>) => void
@@ -48,8 +57,10 @@ export default function PasoDatos({ datos, onChange }: Props) {
   const [enviandoOtp, setEnviandoOtp] = useState(false)
   const [verificandoOtp, setVerificandoOtp] = useState(false)
   const [otpError, setOtpError] = useState<string | null>(null)
+  const [metodoOtp, setMetodoOtp] = useState<'sms' | 'wa'>('sms')
   const confirmationRef = useRef<ConfirmationResult | null>(null)
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
+  const waTokenRef = useRef<string | null>(null)
 
   // Touched para mostrar errores solo tras interacción
   const [touched, setTouched] = useState<Record<string, boolean>>({})
@@ -76,6 +87,7 @@ export default function PasoDatos({ datos, onChange }: Props) {
       }
       confirmationRef.current = await signInWithPhoneNumber(auth, toE164(datos.telefono ?? ''), recaptchaRef.current)
       track('4_sms_enviado')
+      setMetodoOtp('sms')
       setOtpEnviado(true)
     } catch (e) {
       recaptchaRef.current?.clear()
@@ -93,19 +105,56 @@ export default function PasoDatos({ datos, onChange }: Props) {
     }
   }
 
+  // Envía el código por WhatsApp desde el número de la empresa (otp-wa)
+  const enviarOtpWa = async () => {
+    setEnviandoOtp(true)
+    setOtpError(null)
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/otp-wa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+        body: JSON.stringify({ accion: 'enviar', telefono: datos.telefono ?? '' }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok || !d.ok) throw new Error(d.error || 'No se pudo enviar el WhatsApp. Intenta de nuevo.')
+      waTokenRef.current = d.token
+      setMetodoOtp('wa')
+      setOtpEnviado(true)
+      setCodigoInput('')
+      track('4_wa_enviado')
+    } catch (e) {
+      track('4x_error_wa', e instanceof Error ? e.message : String(e))
+      setOtpError(e instanceof Error ? e.message : 'Error enviando el WhatsApp. Intenta de nuevo.')
+    } finally {
+      setEnviandoOtp(false)
+    }
+  }
+
   const verificarOtp = async () => {
     setVerificandoOtp(true)
     setOtpError(null)
     try {
-      if (!confirmationRef.current) throw new Error('Solicita un código primero')
-      await confirmationRef.current.confirm(codigoInput)
-      track('5_telefono_verificado')
+      if (metodoOtp === 'wa') {
+        if (!waTokenRef.current) throw new Error('Solicita un código primero')
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/otp-wa`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+          body: JSON.stringify({ accion: 'verificar', telefono: datos.telefono ?? '', codigo: codigoInput, token: waTokenRef.current }),
+        })
+        const d = await res.json().catch(() => ({}))
+        if (!res.ok || !d.ok) throw new Error(d.error || 'Error verificando el código.')
+      } else {
+        if (!confirmationRef.current) throw new Error('Solicita un código primero')
+        await confirmationRef.current.confirm(codigoInput)
+      }
+      track('5_telefono_verificado', metodoOtp)
       onChange({ telefono_verificado: true })
     } catch (e) {
       const code = (e as { code?: string })?.code ?? ''
       const msg =
         code === 'auth/invalid-verification-code' ? 'Código incorrecto. Intenta de nuevo.' :
         code === 'auth/code-expired' ? 'El código expiró. Solicita uno nuevo.' :
+        metodoOtp === 'wa' && e instanceof Error ? e.message :
         'Error verificando el código.'
       track('5x_error_codigo', code || String(e))
       setOtpError(msg)
@@ -208,7 +257,7 @@ export default function PasoDatos({ datos, onChange }: Props) {
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs text-gray-600 font-medium">
-                      Ingresa el código de 6 dígitos enviado por SMS a tu teléfono
+                      Ingresa el código de 6 dígitos enviado por {metodoOtp === 'wa' ? 'WhatsApp' : 'SMS'} a tu teléfono
                     </p>
                     <div className="flex items-center gap-2">
                       <input
@@ -232,9 +281,16 @@ export default function PasoDatos({ datos, onChange }: Props) {
                         {verificandoOtp ? <Loader2 className="w-4 h-4 animate-spin inline" /> : 'Confirmar'}
                       </button>
                     </div>
-                    <button type="button" onClick={() => enviarOtp()} className="text-xs text-gray-400 underline">
-                      Reenviar código
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={() => (metodoOtp === 'wa' ? enviarOtpWa() : enviarOtp())} className="text-xs text-gray-400 underline">
+                        Reenviar código
+                      </button>
+                      {metodoOtp === 'sms' && esCelularVE(datos.telefono ?? '') && (
+                        <button type="button" onClick={() => enviarOtpWa()} disabled={enviandoOtp} className="text-xs font-semibold underline" style={{ color: '#25D366' }}>
+                          ¿No te llegó? Recibirlo por WhatsApp
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -245,9 +301,24 @@ export default function PasoDatos({ datos, onChange }: Props) {
               </p>
             )}
             {otpError && (
-              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" /> {otpError}
-              </p>
+              <div className="mt-1 space-y-2">
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> {otpError}
+                </p>
+                {/* Si el SMS falló y es un celular venezolano, ofrecer WhatsApp */}
+                {!otpEnviado && esCelularVE(datos.telefono ?? '') && (
+                  <button
+                    type="button"
+                    onClick={() => enviarOtpWa()}
+                    disabled={enviandoOtp}
+                    className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
+                    style={{ backgroundColor: '#25D366' }}
+                  >
+                    {enviandoOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    📲 Recibir el código por WhatsApp
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
