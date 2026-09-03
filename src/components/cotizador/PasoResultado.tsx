@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PasoForm } from '@/types'
 import { SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_COCINA } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
@@ -204,6 +204,10 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
 }
 
 export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
+  // Número unificado COT-AAAAMMDD-NNN que asigna la app de vendedores
+  const [numeroApp, setNumeroApp] = useState<string | null>(null)
+  const enviadaAppRef = useRef<string | null>(null)
+
   const servicio = datos.servicio!
   const info = SERVICIOS[servicio]
   const cantidad = servicio === 'cocina-modular'
@@ -218,7 +222,7 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
   const colorInfo = colores.find(c => c.id === datos.color_seleccionado)
   const flete = getFlete(datos.ciudad)
   const fechaHoy = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })
-  const nroCotizacion = cotizacionId ? cotizacionId.slice(0, 8).toUpperCase() : 'PENDIENTE'
+  const nroCotizacion = numeroApp ?? (cotizacionId ? cotizacionId.slice(0, 8).toUpperCase() : 'PENDIENTE')
 
   // Extras LVT: acondicionamiento siempre + 1 perfil de terminación
   const costoAcond = esLVT ? COSTO_ACOND_M2 * cantidad : 0
@@ -241,6 +245,57 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
   )
   const whatsappUrl = `https://wa.me/584142568220?text=${whatsappMsg}`
   const pedidoVisita = `${info.nombre}${colorInfo ? ` ${colorInfo.nombre}` : ''} · ${cantidad} ${info.unidad} · Cotización #${nroCotizacion}`
+
+  // Registrar la cotización en la app de vendedores (app.kersadesign.com) vía
+  // la función cotizacion-web: entra al historial con numeración COT unificada
+  // y los vendedores pueden procesar la venta desde allí.
+  useEffect(() => {
+    if (!cotizacionId || !precio || enviadaAppRef.current === cotizacionId) return
+    enviadaAppRef.current = cotizacionId
+
+    const lineas: { c: string; n: string; u: string; cant: number; m2: number | null; pUsd: number; subUsd: number }[] = []
+    const nombreBase = `${info.nombre}${colorInfo ? ` — ${colorInfo.nombre}` : ''} (instalación incluida)`
+    lineas.push({
+      c: `WEB-${servicio.toUpperCase()}`, n: nombreBase, u: info.unidad,
+      cant: cantidad, m2: servicio !== 'cocina-modular' ? cantidad : null,
+      pUsd: cantidad ? +(costoBase / cantidad).toFixed(2) : costoBase, subUsd: +costoBase.toFixed(2),
+    })
+    if (costoAcond > 0) lineas.push({ c: 'WEB-ACOND', n: 'Acondicionamiento de piso', u: 'm²', cant: cantidad, m2: cantidad, pUsd: COSTO_ACOND_M2, subUsd: +costoAcond.toFixed(2) })
+    if (costoPerfil > 0) lineas.push({ c: 'WEB-PERFIL', n: 'Perfil de terminación', u: 'ud', cant: 1, m2: null, pUsd: costoPerfil, subUsd: costoPerfil })
+    if (costoRodapie > 0) lineas.push({ c: 'WEB-RODAPIE', n: 'Rodapié PVC (instalación y carateo)', u: 'ML', cant: mlRodapie, m2: null, pUsd: PRECIO_RODAPIE_ML, subUsd: +costoRodapie.toFixed(2) })
+    if (flete) lineas.push({ c: 'WEB-FLETE', n: `Flete — ${datos.ciudad ?? ''}`, u: 'ud', cant: 1, m2: null, pUsd: flete, subUsd: flete })
+
+    const fmt = (v: number) => v.toFixed(2)
+    const texto =
+      `*KERSA DESIGN — COTIZACIÓN*\n${new Date().toLocaleDateString('es-VE')}` +
+      `\nCliente: ${datos.nombre ?? ''}` +
+      (datos.telefono ? `\nTeléfono: ${datos.telefono}` : '') +
+      (datos.ciudad ? `\nDirección: ${[datos.ciudad, datos.municipio].filter(Boolean).join(' - ')}` : '') +
+      `\nVendedor: Cotizador Web\nMoneda: DIVISA ($)\n\n` +
+      lineas.map(l => `• ${l.n}\n  ${l.cant} ${l.u} x $${fmt(l.pUsd)} = *$${fmt(l.subUsd)}*`).join('\n') +
+      (total ? `\n\n*TOTAL: $${fmt(total)}*` : '') +
+      `\n_Precio más IVA · promocional para pago en divisa · sujeto a visita técnica_`
+
+    fetch(`${SUPABASE_URL}/functions/v1/cotizacion-web`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+      body: JSON.stringify({
+        cotizacion_id: cotizacionId,
+        lead_id: leadId ?? null,
+        cliente: {
+          nombre: datos.nombre ?? '', telefono: datos.telefono ?? '',
+          correo: datos.email ?? '', direccion: [datos.ciudad, datos.municipio].filter(Boolean).join(' - '),
+        },
+        items: lineas,
+        totalUsd: total ? +total.toFixed(2) : null,
+        texto,
+      }),
+    })
+      .then(r => r.json())
+      .then(d => { if (d?.ok && d.numero) { setNumeroApp(d.numero); track('6b_cotizacion_en_app', d.numero) } })
+      .catch(() => {}) // la app puede estar caída: el número interno sigue sirviendo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cotizacionId])
 
   return (
     <div>
