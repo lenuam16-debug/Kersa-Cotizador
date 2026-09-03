@@ -77,18 +77,68 @@ export default function Cotizador() {
         ? `${datos.ciudad} - ${datos.municipio ?? ''}`.trim().replace(/ - $/, '')
         : null
 
-      // 1. Upsert lead
-      const leadsRes = await fetch(`${supabaseUrl}/rest/v1/leads`, {
-        method: 'POST',
-        headers: { ...headers, 'Prefer': 'return=representation,resolution=merge-duplicates', 'on-conflict': 'email' },
-        body: JSON.stringify({
-          name: datos.nombre, email: datos.email, telefono: datos.telefono,
-          ciudad: ciudadCompleta, stage: 'cotizacion', platform: 'Cotizador Web',
-        }),
-      })
-      const leads = await leadsRes.json()
-      if (!leadsRes.ok) throw new Error('Error guardando lead: ' + JSON.stringify(leads))
-      const leadId = Array.isArray(leads) ? leads[0]?.id : leads?.id
+      // 1. Buscar el lead si ya existe (el CRM tiene el teléfono como único:
+      // un cliente que ya escribió por WhatsApp/Instagram chocaría al insertar)
+      const digitos = (datos.telefono ?? '').replace(/\D/g, '')
+      const telNorm = digitos === '' ? '' :
+        digitos.length > 12 ? digitos :
+        digitos.startsWith('0') ? '58' + digitos.slice(1) :
+        digitos.length === 10 ? '58' + digitos : digitos
+      const variantes = [...new Set([
+        datos.telefono, digitos, telNorm,
+        telNorm.startsWith('58') ? '0' + telNorm.slice(2) : '',
+        telNorm ? '+' + telNorm : '',
+      ].filter(Boolean))] as string[]
+
+      const buscarLead = async (): Promise<string | null> => {
+        // Por teléfono (handle normalizado o telefono en cualquier formato usual)
+        const filtroTel = `(handle.eq.${telNorm},telefono.in.(${variantes.map(v => `"${v}"`).join(',')}))`
+        const porTel = await fetch(
+          `${supabaseUrl}/rest/v1/leads?select=id&or=${encodeURIComponent(filtroTel)}&stage=neq.archivado_dup&limit=1`,
+          { headers },
+        ).then(r => r.ok ? r.json() : [])
+        if (porTel[0]?.id) return porTel[0].id
+        // Por email
+        const porEmail = await fetch(
+          `${supabaseUrl}/rest/v1/leads?select=id&email=eq.${encodeURIComponent(datos.email ?? '')}&stage=neq.archivado_dup&limit=1`,
+          { headers },
+        ).then(r => r.ok ? r.json() : [])
+        return porEmail[0]?.id ?? null
+      }
+
+      const datosLead = {
+        name: datos.nombre, email: datos.email, telefono: datos.telefono,
+        ciudad: ciudadCompleta, stage: 'cotizacion', platform: 'Cotizador Web',
+      }
+
+      let leadId = await buscarLead()
+      if (leadId) {
+        // Ya existe: actualizarlo en vez de crear un duplicado
+        const upd = await fetch(`${supabaseUrl}/rest/v1/leads?id=eq.${leadId}`, {
+          method: 'PATCH', headers, body: JSON.stringify(datosLead),
+        })
+        if (!upd.ok) throw new Error('Error actualizando lead: ' + JSON.stringify(await upd.json().catch(() => ({}))))
+      } else {
+        const leadsRes = await fetch(`${supabaseUrl}/rest/v1/leads`, {
+          method: 'POST',
+          headers: { ...headers, 'Prefer': 'return=representation,resolution=merge-duplicates', 'on-conflict': 'email' },
+          body: JSON.stringify(datosLead),
+        })
+        const leads = await leadsRes.json()
+        if (leadsRes.ok) {
+          leadId = Array.isArray(leads) ? leads[0]?.id : leads?.id
+        } else if (leads?.code === '23505') {
+          // Carrera: alguien creó el lead entre la búsqueda y el insert
+          leadId = await buscarLead()
+          if (leadId) {
+            await fetch(`${supabaseUrl}/rest/v1/leads?id=eq.${leadId}`, {
+              method: 'PATCH', headers, body: JSON.stringify(datosLead),
+            })
+          }
+        } else {
+          throw new Error('Error guardando lead: ' + JSON.stringify(leads))
+        }
+      }
       if (!leadId) throw new Error('No se obtuvo ID del lead')
       setLeadId(leadId)
 
