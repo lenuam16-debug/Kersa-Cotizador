@@ -25,6 +25,13 @@ function horaTxt(h: number): string {
 
 interface DiaDisponible { fecha: string; dia: string; libres: number[] }
 
+// Mismo mapa que UNIDAD_CORTA del cotizador de la app, para que las líneas de
+// la cotización se escriban igual ("40 m² x $20,00/m²")
+const UNIDAD_CORTA: Record<string, string> = {
+  'm²': '/m²', 'lámina': '/lámina', 'metro lineal': '/ml', 'saco': '/saco',
+  'bolsa': '/bolsa', 'pieza': '/pieza', 'caja': '/caja', 'rollo': '/rollo', 'kit': '/kit',
+}
+
 const FLETES: Record<string, number> = {
   'Caracas (Distrito Capital)': 40,
   'Miranda': 60,
@@ -82,6 +89,16 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
     }
   }
 
+  // Si el cliente deja la pestaña abierta, los cupos envejecen: al volver se
+  // vuelven a pedir para no ofrecerle una hora que ya tomó otro.
+  useEffect(() => {
+    if (estado !== 'elegir') return
+    const alVolver = () => { if (!document.hidden) cargarDisponibilidad() }
+    document.addEventListener('visibilitychange', alVolver)
+    return () => document.removeEventListener('visibilitychange', alVolver)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado])
+
   const agendar = async () => {
     if (!fecha || hora === null) return
     setEstado('enviando')
@@ -102,8 +119,9 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
       const d = await res.json().catch(() => ({}))
       if (!res.ok || !d.ok) {
         if (d.ocupada) {
+          // Recargar cupos y conservar el motivo real (ocupada o traslado)
           await cargarDisponibilidad()
-          setError('Esa hora acaba de ocuparse. Escoge otra.')
+          setError(d.error || 'Esa hora acaba de ocuparse. Escoge otra.')
           return
         }
         throw new Error(d.error || 'No se pudo agendar la visita.')
@@ -255,26 +273,39 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
 
     const lineas: { c: string; n: string; u: string; cant: number; m2: number | null; pUsd: number; subUsd: number }[] = []
     const nombreBase = `${info.nombre}${colorInfo ? ` — ${colorInfo.nombre}` : ''} (instalación incluida)`
+    // unidades con el mismo nombre que usa la app (ML → metro lineal)
+    const unidadServicio = info.unidad === 'ML' ? 'metro lineal' : info.unidad
     lineas.push({
-      c: `WEB-${servicio.toUpperCase()}`, n: nombreBase, u: info.unidad,
+      c: `WEB-${servicio.toUpperCase()}`, n: nombreBase, u: unidadServicio,
       cant: cantidad, m2: servicio !== 'cocina-modular' ? cantidad : null,
       pUsd: cantidad ? +(costoBase / cantidad).toFixed(2) : costoBase, subUsd: +costoBase.toFixed(2),
     })
     if (costoAcond > 0) lineas.push({ c: 'WEB-ACOND', n: 'Acondicionamiento de piso', u: 'm²', cant: cantidad, m2: cantidad, pUsd: COSTO_ACOND_M2, subUsd: +costoAcond.toFixed(2) })
     if (costoPerfil > 0) lineas.push({ c: 'WEB-PERFIL', n: 'Perfil de terminación', u: 'ud', cant: 1, m2: null, pUsd: costoPerfil, subUsd: costoPerfil })
-    if (costoRodapie > 0) lineas.push({ c: 'WEB-RODAPIE', n: 'Rodapié PVC (instalación y carateo)', u: 'ML', cant: mlRodapie, m2: null, pUsd: PRECIO_RODAPIE_ML, subUsd: +costoRodapie.toFixed(2) })
+    if (costoRodapie > 0) lineas.push({ c: 'WEB-RODAPIE', n: 'Rodapié PVC (instalación y carateo)', u: 'metro lineal', cant: mlRodapie, m2: null, pUsd: PRECIO_RODAPIE_ML, subUsd: +costoRodapie.toFixed(2) })
     if (flete) lineas.push({ c: 'WEB-FLETE', n: `Flete — ${datos.ciudad ?? ''}`, u: 'ud', cant: 1, m2: null, pUsd: flete, subUsd: flete })
 
-    const fmt = (v: number) => v.toFixed(2)
-    const texto =
-      `*KERSA DESIGN — COTIZACIÓN*\n${new Date().toLocaleDateString('es-VE')}` +
-      `\nCliente: ${datos.nombre ?? ''}` +
-      (datos.telefono ? `\nTeléfono: ${datos.telefono}` : '') +
-      (datos.ciudad ? `\nDirección: ${[datos.ciudad, datos.municipio].filter(Boolean).join(' - ')}` : '') +
-      `\nVendedor: Cotizador Web\nMoneda: DIVISA ($)\n\n` +
-      lineas.map(l => `• ${l.n}\n  ${l.cant} ${l.u} x $${fmt(l.pUsd)} = *$${fmt(l.subUsd)}*`).join('\n') +
-      (total ? `\n\n*TOTAL: $${fmt(total)}*` : '') +
-      `\n_Precio más IVA · promocional para pago en divisa · sujeto a visita técnica_`
+    // Mismo formato exacto que textoCotizacion() del cotizador de la app
+    // (app.kersadesign.com, rama de divisa): así una cotización web y una de
+    // vendedor se leen idénticas en el historial y por WhatsApp.
+    const fmt = (v: number | null, d = 2) =>
+      v == null || isNaN(v) ? '—' : v.toLocaleString('es-VE', { minimumFractionDigits: d, maximumFractionDigits: d })
+    const cortaUnidad = (u: string) => UNIDAD_CORTA[u] ?? (u ? '/' + u : '')
+
+    const direccionCliente = [datos.ciudad, datos.municipio].filter(Boolean).join(' - ')
+    let texto = `*KERSA DESIGN — COTIZACIÓN*\n${new Date().toLocaleDateString('es-VE')}`
+    if (datos.nombre) texto += `\nCliente: ${datos.nombre}`
+    if (datos.telefono) texto += `\nTeléfono: ${datos.telefono}`
+    if (direccionCliente) texto += `\nDirección: ${direccionCliente}`
+    texto += `\nVendedor: Cotizador Web`
+    texto += `\nMoneda: DIVISA ($)`
+    texto += '\n\n'
+    for (const l of lineas) {
+      texto += `• ${l.n}\n  ${l.cant} ${l.u} x $${fmt(l.pUsd)}${cortaUnidad(l.u)} = *$${fmt(l.subUsd)}*\n`
+    }
+    texto += `\n*TOTAL: $${fmt(total)}*`
+    texto += `\n_Precios promocionales por pago en divisa._`
+    texto += `\n\n_Cotización válida solo por hoy._`
 
     fetch(`${SUPABASE_URL}/functions/v1/cotizacion-web`, {
       method: 'POST',
