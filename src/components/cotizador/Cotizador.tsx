@@ -21,6 +21,7 @@ export default function Cotizador() {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cotizacionId, setCotizacionId] = useState<string | undefined>()
+  const [leadId, setLeadId] = useState<string | undefined>()
 
   const actualizar = (d: Partial<PasoForm>) => setDatos(prev => ({ ...prev, ...d }))
 
@@ -89,6 +90,7 @@ export default function Cotizador() {
       if (!leadsRes.ok) throw new Error('Error guardando lead: ' + JSON.stringify(leads))
       const leadId = Array.isArray(leads) ? leads[0]?.id : leads?.id
       if (!leadId) throw new Error('No se obtuvo ID del lead')
+      setLeadId(leadId)
 
       // 2. Calcular precio client-side
       const { calcularCotizacion } = await import('@/lib/pricing')
@@ -177,7 +179,7 @@ export default function Cotizador() {
               <PasoDatos datos={datos} onChange={actualizar} />
             )}
             {paso === 3 && (
-              <PasoResultado datos={datos} cotizacionId={cotizacionId} />
+              <PasoResultado datos={datos} cotizacionId={cotizacionId} leadId={leadId} />
             )}
           </div>
 

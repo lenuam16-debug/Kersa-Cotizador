@@ -1,14 +1,29 @@
 'use client'
 
+import { useState } from 'react'
 import { PasoForm } from '@/types'
 import { SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_COCINA } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
-import { CheckCircle, CalendarCheck, MessageCircle, Printer } from 'lucide-react'
+import { CheckCircle, CalendarCheck, MessageCircle, Printer, Loader2, AlertCircle } from 'lucide-react'
+import { track } from '@/lib/track'
 
 interface Props {
   datos: PasoForm
   cotizacionId?: string
+  leadId?: string
 }
+
+// Agenda propia (tabla visitas del CRM) vía la función agenda-cotizador
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://awscrogqprosivmtgkio.supabase.co'
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c2Nyb2dxcHJvc2l2bXRna2lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjQ1NDIsImV4cCI6MjA5NzkwMDU0Mn0.WcYei2z8UGNCTQaWKSTNeWEJByWKTNqHyyCrwcPPnTQ'
+
+function horaTxt(h: number): string {
+  if (h < 12) return `${h}:00 am`
+  if (h === 12) return '12:00 m'
+  return `${h - 12}:00 pm`
+}
+
+interface DiaDisponible { fecha: string; dia: string; libres: number[] }
 
 const FLETES: Record<string, number> = {
   'Caracas (Distrito Capital)': 40,
@@ -27,7 +42,166 @@ function getFlete(ciudad?: string): number | null {
 const COSTO_PERFIL_TERMINACION = 30 // $ por unidad (fijo para LVT)
 const COSTO_ACOND_M2 = 3             // $ base por m²
 
-export default function PasoResultado({ datos, cotizacionId }: Props) {
+/**
+ * Agenda inline: cupos reales de la tabla `visitas` (la misma agenda del CRM
+ * y la app de Kersa). Sustituye el enlace de Google Calendar que los
+ * vendedores no miraban: lo agendado aquí les aparece de una vez en el CRM.
+ */
+function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: string; leadId?: string }) {
+  const [estado, setEstado] = useState<'idle' | 'cargando' | 'elegir' | 'enviando' | 'exito'>('idle')
+  const [dias, setDias] = useState<DiaDisponible[]>([])
+  const [fecha, setFecha] = useState<string>('')
+  const [hora, setHora] = useState<number | null>(null)
+  const [direccion, setDireccion] = useState('')
+  const [codigo, setCodigo] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+  }
+
+  const cargarDisponibilidad = async () => {
+    setEstado('cargando')
+    setError(null)
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/agenda-cotizador`, {
+        method: 'POST', headers, body: JSON.stringify({ accion: 'disponibilidad' }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok || !d.ok || !d.dias?.length) throw new Error(d.error || 'No hay cupos disponibles por ahora')
+      setDias(d.dias)
+      setFecha(d.dias[0].fecha)
+      setHora(null)
+      setEstado('elegir')
+    } catch (e) {
+      track('7x_error_visita', e instanceof Error ? e.message : String(e))
+      setError(e instanceof Error ? e.message : 'No se pudo cargar la agenda. Intenta de nuevo.')
+      setEstado('idle')
+    }
+  }
+
+  const agendar = async () => {
+    if (!fecha || hora === null) return
+    setEstado('enviando')
+    setError(null)
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/agenda-cotizador`, {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          accion: 'agendar',
+          nombre: datos.nombre ?? '',
+          telefono: datos.telefono ?? '',
+          direccion: [direccion.trim(), datos.ciudad].filter(Boolean).join(' — ') || null,
+          pedido, fecha, hora,
+          lead_id: leadId ?? null,
+        }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok || !d.ok) {
+        if (d.ocupada) {
+          await cargarDisponibilidad()
+          setError('Esa hora acaba de ocuparse. Escoge otra.')
+          return
+        }
+        throw new Error(d.error || 'No se pudo agendar la visita.')
+      }
+      setCodigo(d.codigo)
+      setEstado('exito')
+      track('7_visita_agendada', d.codigo)
+    } catch (e) {
+      track('7x_error_visita', e instanceof Error ? e.message : String(e))
+      setError(e instanceof Error ? e.message : 'No se pudo agendar. Intenta de nuevo.')
+      setEstado('elegir')
+    }
+  }
+
+  if (estado === 'exito') {
+    const diaInfo = dias.find(d => d.fecha === fecha)
+    return (
+      <div className="bg-green-50 border-2 border-green-300 rounded-2xl p-5 text-center">
+        <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+        <p className="font-bold text-green-700">¡Visita agendada! {codigo && <span className="font-mono">{codigo}</span>}</p>
+        <p className="text-sm text-green-700 mt-1 capitalize">{diaInfo?.dia} · {hora !== null ? horaTxt(hora) : ''}</p>
+        <p className="text-xs text-gray-500 mt-2">Nuestro equipo te llamará para confirmar la visita.</p>
+      </div>
+    )
+  }
+
+  if (estado === 'idle' || estado === 'cargando') {
+    return (
+      <div>
+        <button
+          onClick={cargarDisponibilidad}
+          disabled={estado === 'cargando'}
+          className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-4 rounded-2xl transition-colors shadow-sm disabled:opacity-60"
+        >
+          {estado === 'cargando' ? <Loader2 className="w-6 h-6 animate-spin" /> : <CalendarCheck className="w-6 h-6" />}
+          {estado === 'cargando' ? 'Buscando cupos...' : 'Agendar visita técnica'}
+        </button>
+        {error && (
+          <p className="text-xs text-red-500 mt-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {error}</p>
+        )}
+      </div>
+    )
+  }
+
+  const diaActual = dias.find(d => d.fecha === fecha)
+  return (
+    <div className="bg-white border-2 border-blue-200 rounded-2xl p-5 space-y-4">
+      <p className="font-bold text-gray-800 flex items-center gap-2">
+        <CalendarCheck className="w-5 h-5 text-blue-600" /> Escoge día y hora de tu visita técnica
+      </p>
+
+      <div className="flex gap-2 flex-wrap">
+        {dias.map(d => (
+          <button
+            key={d.fecha}
+            onClick={() => { setFecha(d.fecha); setHora(null) }}
+            className={`px-3 py-2 rounded-xl text-sm font-semibold border-2 transition-colors capitalize ${fecha === d.fecha ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}
+          >
+            {d.dia}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {(diaActual?.libres ?? []).map(h => (
+          <button
+            key={h}
+            onClick={() => setHora(h)}
+            className={`px-3 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${hora === h ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}
+          >
+            {horaTxt(h)}
+          </button>
+        ))}
+      </div>
+
+      <input
+        type="text"
+        value={direccion}
+        onChange={e => setDireccion(e.target.value)}
+        placeholder="Dirección o punto de referencia (opcional)"
+        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400"
+      />
+
+      {error && (
+        <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {error}</p>
+      )}
+
+      <button
+        onClick={agendar}
+        disabled={hora === null || estado === 'enviando'}
+        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl transition-colors disabled:opacity-50"
+      >
+        {estado === 'enviando' ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+        {estado === 'enviando' ? 'Agendando...' : 'Confirmar visita'}
+      </button>
+    </div>
+  )
+}
+
+export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
   const servicio = datos.servicio!
   const info = SERVICIOS[servicio]
   const cantidad = servicio === 'cocina-modular'
@@ -64,7 +238,7 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
     `Hola, acabo de generar mi cotización #${nroCotizacion} en KersaDesign para ${info.nombre}${colorInfo ? ` (${colorInfo.nombre})` : ''} — ${cantidad} ${info.unidad}${total ? `. Total estimado: ${formatCurrency(total)}` : ''}. Me gustaría más información.`
   )
   const whatsappUrl = `https://wa.me/584142568220?text=${whatsappMsg}`
-  const calendarUrl = 'https://calendar.app.google/ETSdfrJ3Ce8VP25q6'
+  const pedidoVisita = `${info.nombre}${colorInfo ? ` ${colorInfo.nombre}` : ''} · ${cantidad} ${info.unidad} · Cotización #${nroCotizacion}`
 
   return (
     <div>
@@ -263,8 +437,9 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
         </div>
       </div>
 
-      {/* CTAs: WhatsApp + Agendar visita */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 no-print">
+      {/* CTAs: Agendar visita (agenda propia) + WhatsApp */}
+      <div className="space-y-4 no-print">
+        <AgendarVisita datos={datos} pedido={pedidoVisita} leadId={leadId} />
         <a
           href={whatsappUrl}
           target="_blank"
@@ -273,15 +448,6 @@ export default function PasoResultado({ datos, cotizacionId }: Props) {
         >
           <MessageCircle className="w-6 h-6" />
           Contactar asesor por WhatsApp
-        </a>
-        <a
-          href={calendarUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-4 rounded-2xl transition-colors shadow-sm"
-        >
-          <CalendarCheck className="w-6 h-6" />
-          Agendar visita técnica
         </a>
       </div>
     </div>
