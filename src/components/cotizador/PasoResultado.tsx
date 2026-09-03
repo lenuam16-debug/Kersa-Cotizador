@@ -232,7 +232,7 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
 
   // Usamos precio.max como precio estándar (precio completo, sin descuento mínimo)
   const costoBase = precio ? precio.max : 0
-  const total = precio ? costoBase + costoAcond + costoPerfil + (flete ?? 0) : null
+  const total = precio ? costoBase + costoAcond + costoPerfil + costoRodapie + (flete ?? 0) : null
 
   const whatsappMsg = encodeURIComponent(
     `Hola, acabo de generar mi cotización #${nroCotizacion} en KersaDesign para ${info.nombre}${colorInfo ? ` (${colorInfo.nombre})` : ''} — ${cantidad} ${info.unidad}${total ? `. Total estimado: ${formatCurrency(total)}` : ''}. Me gustaría más información.`
