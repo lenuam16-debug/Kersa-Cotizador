@@ -66,7 +66,8 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
     setError(null)
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/agenda-cotizador`, {
-        method: 'POST', headers, body: JSON.stringify({ accion: 'disponibilidad' }),
+        method: 'POST', headers,
+        body: JSON.stringify({ accion: 'disponibilidad', zona: [datos.ciudad, datos.municipio].filter(Boolean).join(' ') }),
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok || !d.ok || !d.dias?.length) throw new Error(d.error || 'No hay cupos disponibles por ahora')
@@ -94,6 +95,7 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
           telefono: datos.telefono ?? '',
           direccion: [direccion.trim(), datos.ciudad].filter(Boolean).join(' — ') || null,
           pedido, fecha, hora,
+          zona: [datos.ciudad, datos.municipio].filter(Boolean).join(' '),
           lead_id: leadId ?? null,
         }),
       })
