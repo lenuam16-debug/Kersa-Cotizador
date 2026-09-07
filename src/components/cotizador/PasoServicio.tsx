@@ -11,6 +11,15 @@ const IMAGENES: Record<string, string> = {
   'cocina-modular': 'https://kersadesign.com/imagenes/embed_078_4b2cca2f.jpg',
 }
 
+/**
+ * Servicios que el cotizador web ofrece hoy.
+ *
+ * Solo LVT mientras se termina el resto del sistema. Los precios y textos de
+ * los demás siguen en pricing.ts: para volver a ofrecer uno basta agregar su
+ * clave aquí (ej: 'vinil-spc', 'cocina-modular').
+ */
+const SERVICIOS_ACTIVOS: Servicio[] = ['vinil-lvt']
+
 interface Props {
   seleccionado?: Servicio
   onSelect: (s: Servicio) => void
@@ -22,8 +31,8 @@ export default function PasoServicio({ seleccionado, onSelect }: Props) {
       <h2 className="text-2xl font-bold text-gray-800 mb-2">¿Qué servicio necesitas?</h2>
       <p className="text-gray-500 mb-8">Selecciona el tipo de instalación que deseas cotizar</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-sm">
-        {(Object.entries(SERVICIOS) as [Servicio, typeof SERVICIOS[Servicio]][]).filter(([key]) => key !== 'laminas-pvc' && key !== 'wallpanel' && key !== 'vinil-spc' && key !== 'cocina-modular').map(([key, s]) => (
+      <div className={cn('grid grid-cols-1 gap-4', SERVICIOS_ACTIVOS.length > 1 ? 'sm:grid-cols-3 max-w-3xl' : 'max-w-sm')}>
+        {(Object.entries(SERVICIOS) as [Servicio, typeof SERVICIOS[Servicio]][]).filter(([key]) => SERVICIOS_ACTIVOS.includes(key)).map(([key, s]) => (
           <button
             key={key}
             onClick={() => onSelect(key)}

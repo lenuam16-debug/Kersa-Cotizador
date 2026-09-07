@@ -34,8 +34,8 @@ export const SERVICIOS = {
     icono: '🔲',
   },
   'cocina-modular': {
-    nombre: 'Cocina Modular Básica',
-    descripcion: 'Encajonamiento de nevera incluido desde $400/ML',
+    nombre: 'Cocina Modular',
+    descripcion: 'Diseño, fabricación e instalación desde $400/ML · entrega en 30 días hábiles',
     unidad: 'ML',
     precioBase: 400,
     margen: 0.15,

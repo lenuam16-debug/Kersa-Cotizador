@@ -1,8 +1,8 @@
 // Registro anónimo de eventos del embudo del cotizador.
 // Permite ver en qué paso abandonan los visitantes.
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://awscrogqprosivmtgkio.supabase.co'
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c2Nyb2dxcHJvc2l2bXRna2lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjQ1NDIsImV4cCI6MjA5NzkwMDU0Mn0.WcYei2z8UGNCTQaWKSTNeWEJByWKTNqHyyCrwcPPnTQ'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
 
 function sessionId(): string {
   let sid = sessionStorage.getItem('kersa_sid')
@@ -15,6 +15,7 @@ function sessionId(): string {
 
 export function track(evento: string, detalles?: string) {
   try {
+    if (!SUPABASE_URL || !SUPABASE_KEY) return  // no tracking si no hay config
     fetch(`${SUPABASE_URL}/rest/v1/funnel_events`, {
       method: 'POST',
       headers: {
