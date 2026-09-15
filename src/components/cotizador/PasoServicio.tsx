@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 const IMAGENES: Record<string, string> = {
   'vinil-lvt': 'https://kersadesign.com/imagenes/embed_038_91a45af7.jpg',
-  'vinil-spc': 'https://kersadesign.com/imagenes/embed_059_9dd044f6.jpg',
+  'vinil-spc': '/materiales/spc-6mm/miel.jpg',
   'cocina-modular': 'https://kersadesign.com/imagenes/embed_078_4b2cca2f.jpg',
 }
 
@@ -18,7 +18,7 @@ const IMAGENES: Record<string, string> = {
  * los demás siguen en pricing.ts: para volver a ofrecer uno basta agregar su
  * clave aquí (ej: 'vinil-spc', 'cocina-modular').
  */
-const SERVICIOS_ACTIVOS: Servicio[] = ['vinil-lvt']
+const SERVICIOS_ACTIVOS: Servicio[] = ['vinil-lvt', 'vinil-spc']
 
 interface Props {
   seleccionado?: Servicio

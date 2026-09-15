@@ -11,10 +11,10 @@ export const SERVICIOS = {
   },
   'vinil-spc': {
     nombre: 'Piso Vinil SPC',
-    descripcion: 'Vinil SPC 5mm con instalación incluida desde $25/m²',
+    descripcion: 'Vinil SPC rígido sistema clic 5mm y 6mm con instalación incluida desde $26/m²',
     unidad: 'm²',
-    precioBase: 25,
-    margen: 0.1,
+    precioBase: 26,
+    margen: 0,
     icono: '🪵',
   },
   'laminas-pvc': {
@@ -92,6 +92,48 @@ export const COLORES_VINIL: { id: string; nombre: string; hex?: string; imagen?:
   { id: 'oregon',      nombre: 'Oregon',      imagen: 'https://kersadesign.com/imagenes/embed_087_2d17083d.jpg' },
   { id: 'pasadena',    nombre: 'Pasadena',    imagen: 'https://kersadesign.com/imagenes/embed_088_dc85ef9a.jpg' },
   { id: 'vermont',     nombre: 'Vermont',     imagen: 'https://kersadesign.com/imagenes/embed_089_653c8c30.jpg' },
+]
+
+// Piso Vinil SPC — promo $26/m² instalado (5mm + 6mm, sin Decoroyal)
+export const COLORES_SPC: { id: string; nombre: string; espesor: string; hex?: string; imagen?: string }[] = [
+  // 5mm
+  { id: 'savannah-antique', nombre: 'Savannah Antique', espesor: '5mm', imagen: '/materiales/spc-5mm/savannah-antique.jpg' },
+  { id: 'douglas-brown',    nombre: 'Douglas Brown',    espesor: '5mm', imagen: '/materiales/spc-5mm/douglas-brown.jpg' },
+  { id: 'lawson-natural',   nombre: 'Lawson Natural',   espesor: '5mm', imagen: '/materiales/spc-5mm/lawson-natural.jpg' },
+  { id: 'lawson-nogal',     nombre: 'Lawson Nogal',     espesor: '5mm', imagen: '/materiales/spc-5mm/lawson-nogal.jpg' },
+  { id: 'lawson-ash',       nombre: 'Lawson Ash',       espesor: '5mm', imagen: '/materiales/spc-5mm/lawson-ash.jpg' },
+  { id: 'savannah-natural', nombre: 'Savannah Natural', espesor: '5mm', imagen: '/materiales/spc-5mm/savannah-natural.jpg' },
+  { id: 'savannah-nogal',   nombre: 'Savannah Nogal',   espesor: '5mm', imagen: '/materiales/spc-5mm/savannah-nogal.jpg' },
+  { id: 'savannah-ash',     nombre: 'Savannah Ash',     espesor: '5mm', imagen: '/materiales/spc-5mm/savannah-ash.jpg' },
+  { id: 'austral-oak',      nombre: 'Austral Oak',      espesor: '5mm', imagen: '/materiales/spc-5mm/austral-oak.jpg' },
+  { id: 'austral-eucalyptus', nombre: 'Austral Eucalyptus', espesor: '5mm', imagen: '/materiales/spc-5mm/austral-eucalyptus.jpg' },
+  // 6mm
+  { id: 'baldur',     nombre: 'Baldur',     espesor: '6mm', imagen: '/materiales/spc-6mm/baldur.jpg' },
+  { id: 'cedro',      nombre: 'Cedro',      espesor: '6mm', imagen: '/materiales/spc-6mm/cedro.jpg' },
+  { id: 'ceniza',     nombre: 'Ceniza',     espesor: '6mm', imagen: '/materiales/spc-6mm/ceniza.jpg' },
+  { id: 'miel',       nombre: 'Miel',       espesor: '6mm', imagen: '/materiales/spc-6mm/miel.jpg' },
+  { id: 'drakar',     nombre: 'Drakar',     espesor: '6mm', imagen: '/materiales/spc-6mm/drakar.jpg' },
+  { id: 'eirik',      nombre: 'Eirik',      espesor: '6mm', imagen: '/materiales/spc-6mm/eirik.jpg' },
+  { id: 'gull',       nombre: 'Gull',       espesor: '6mm', imagen: '/materiales/spc-6mm/gull.jpg' },
+  { id: 'haya',       nombre: 'Haya',       espesor: '6mm', imagen: '/materiales/spc-6mm/haya.jpg' },
+  { id: 'marfil',     nombre: 'Marfil',     espesor: '6mm', imagen: '/materiales/spc-6mm/marfil.jpg' },
+  { id: 'creta',      nombre: 'Creta',      espesor: '6mm', imagen: '/materiales/spc-6mm/creta.jpg' },
+  { id: 'ikaria',     nombre: 'Ikaria',     espesor: '6mm', imagen: '/materiales/spc-6mm/ikaria.jpg' },
+  { id: 'naxos',      nombre: 'Naxos',      espesor: '6mm', imagen: '/materiales/spc-6mm/naxos.jpg' },
+  { id: 'santorini',  nombre: 'Santorini',  espesor: '6mm', imagen: '/materiales/spc-6mm/santorini.jpg' },
+]
+
+// Piso Vinil SPC 6.5mm — precio aparte, solo catálogo web, NO integrado al cotizador
+export const COLORES_SPC_65MM: { id: string; nombre: string; imagen?: string }[] = [
+  { id: 'alto-adicse',        nombre: 'Alto Adicse',        imagen: '/materiales/spc-6-5mm/alto-adicse.jpg' },
+  { id: 'grand-river-65',     nombre: 'Grand River',        imagen: '/materiales/spc-6-5mm/grand-river.jpg' },
+  { id: 'positano-65',        nombre: 'Positano',           imagen: '/materiales/spc-6-5mm/positano.jpg' },
+  { id: 'traviso',            nombre: 'Traviso',            imagen: '/materiales/spc-6-5mm/traviso.jpg' },
+  { id: 'decoroyal-alaska',   nombre: 'Decoroyal Alaska',   imagen: '/materiales/spc-6-5mm/decoroyal-alaska.jpg' },
+  { id: 'decoroyal-arizona',  nombre: 'Decoroyal Arizona',  imagen: '/materiales/spc-6-5mm/decoroyal-arizona.jpg' },
+  { id: 'decoroyal-laredo',   nombre: 'Decoroyal Laredo',   imagen: '/materiales/spc-6-5mm/decoroyal-laredo.jpg' },
+  { id: 'decoroyal-michigan', nombre: 'Decoroyal Michigan', imagen: '/materiales/spc-6-5mm/decoroyal-michigan.jpg' },
+  { id: 'decoroyal-denver',   nombre: 'Decoroyal Denver',   imagen: '/materiales/spc-6-5mm/decoroyal-denver.jpg' },
 ]
 
 export const COLORES_COCINA: { id: string; nombre: string; hex?: string; imagen?: string }[] = [
