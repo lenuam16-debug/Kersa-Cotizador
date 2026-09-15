@@ -6,6 +6,7 @@ import { SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_COCINA } from '@/
 import { formatCurrency } from '@/lib/utils'
 import { CheckCircle, CalendarCheck, MessageCircle, Printer, Loader2, AlertCircle } from 'lucide-react'
 import { track } from '@/lib/track'
+import { calcularFlete, KG_M2_VINIL, KG_ML_RODAPIE, type ResultadoFlete } from '@/lib/flete'
 
 interface Props {
   datos: PasoForm
@@ -32,19 +33,6 @@ const UNIDAD_CORTA: Record<string, string> = {
   'bolsa': '/bolsa', 'pieza': '/pieza', 'caja': '/caja', 'rollo': '/rollo', 'kit': '/kit',
 }
 
-const FLETES: Record<string, number> = {
-  'Caracas (Distrito Capital)': 40,
-  'Miranda': 60,
-  'La Guaira (Vargas)': 80,
-}
-
-function getFlete(ciudad?: string): number | null {
-  if (!ciudad) return null
-  for (const [key, val] of Object.entries(FLETES)) {
-    if (ciudad.toLowerCase().includes(key.toLowerCase())) return val
-  }
-  return null
-}
 
 const COSTO_PERFIL_TERMINACION = 30 // $ por unidad (fijo para LVT)
 const COSTO_ACOND_M2 = 3             // $ base por m²
@@ -238,7 +226,6 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
   const precio = calcularCotizacion(servicio, cantidad, false)
   const colores = servicio === 'cocina-modular' ? COLORES_COCINA : COLORES_VINIL
   const colorInfo = colores.find(c => c.id === datos.color_seleccionado)
-  const flete = getFlete(datos.ciudad)
   const fechaHoy = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })
   const nroCotizacion = numeroApp ?? (cotizacionId ? cotizacionId.slice(0, 8).toUpperCase() : 'PENDIENTE')
 
@@ -253,6 +240,17 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
     ? (datos.ml_rodapie ?? Math.ceil(cantidad * 0.9))
     : 0
   const costoRodapie = mlRodapie * PRECIO_RODAPIE_ML
+
+  // Flete con el tabulador de la app: km de la zona + peso del material que se
+  // lleva (los servicios no pesan, igual que en pesoCarrito() de la app).
+  // La cocina tiene su propia tarifa en la app, así que queda a coordinar.
+  const kgCarga = esLVT
+    ? cantidad * KG_M2_VINIL + mlRodapie * KG_ML_RODAPIE
+    : 0
+  const resultadoFlete: ResultadoFlete = esLVT
+    ? calcularFlete(datos.zona_entrega, kgCarga)
+    : { tipo: 'sin_zona' }
+  const flete = resultadoFlete.tipo === 'monto' ? resultadoFlete.monto : null
 
   // Usamos precio.max como precio estándar (precio completo, sin descuento mínimo)
   const costoBase = precio ? precio.max : 0
@@ -283,7 +281,8 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
     if (costoAcond > 0) lineas.push({ c: 'WEB-ACOND', n: 'Acondicionamiento de piso', u: 'm²', cant: cantidad, m2: cantidad, pUsd: COSTO_ACOND_M2, subUsd: +costoAcond.toFixed(2) })
     if (costoPerfil > 0) lineas.push({ c: 'WEB-PERFIL', n: 'Perfil de terminación', u: 'ud', cant: 1, m2: null, pUsd: costoPerfil, subUsd: costoPerfil })
     if (costoRodapie > 0) lineas.push({ c: 'WEB-RODAPIE', n: 'Rodapié PVC (instalación y carateo)', u: 'metro lineal', cant: mlRodapie, m2: null, pUsd: PRECIO_RODAPIE_ML, subUsd: +costoRodapie.toFixed(2) })
-    if (flete) lineas.push({ c: 'WEB-FLETE', n: `Flete — ${datos.ciudad ?? ''}`, u: 'ud', cant: 1, m2: null, pUsd: flete, subUsd: flete })
+    // Mismo renglón que agrega la app: "Flete a <zona>", unidad servicio
+    if (resultadoFlete.tipo === 'monto') lineas.push({ c: 'SRV-FLETE', n: `Flete a ${resultadoFlete.zona}`, u: 'servicio', cant: 1, m2: null, pUsd: resultadoFlete.monto, subUsd: resultadoFlete.monto })
 
     // Mismo formato exacto que textoCotizacion() del cotizador de la app
     // (app.kersadesign.com, rama de divisa): así una cotización web y una de
@@ -468,15 +467,17 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
               )}
 
               {/* Fila 5: Flete */}
-              {flete !== null && (
+              {resultadoFlete.tipo === 'monto' && (
                 <tr>
                   <td className="py-2">
-                    <p className="font-medium text-gray-800">Flete / Traslado</p>
-                    <p className="text-xs text-gray-400">Entrega en {datos.ciudad}</p>
+                    <p className="font-medium text-gray-800">Flete a {resultadoFlete.zona}</p>
+                    <p className="text-xs text-gray-400">
+                      {resultadoFlete.km} km · carga ≈ {Math.round(resultadoFlete.kg)} kg
+                    </p>
                   </td>
                   <td className="py-2 text-right text-gray-700">1</td>
                   <td className="py-2 text-right text-gray-700">—</td>
-                  <td className="py-2 text-right font-semibold text-gray-800">{formatCurrency(flete)}</td>
+                  <td className="py-2 text-right font-semibold text-gray-800">{formatCurrency(resultadoFlete.monto)}</td>
                 </tr>
               )}
             </tbody>
@@ -490,8 +491,13 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
               <div>
                 <p className="text-sm font-semibold text-gray-700">TOTAL ESTIMADO</p>
                 <p className="text-xs text-gray-400 mt-0.5">Piso + Acondicionamiento + Perfil + Flete</p>
-                {flete === null && (
-                  <p className="text-xs text-amber-600 mt-0.5">* Flete no incluido — consultar según ubicación</p>
+                {resultadoFlete.tipo === 'camion' && (
+                  <p className="text-xs text-amber-600 mt-0.5">
+                    * Flete no incluido — la carga (≈ {Math.round(resultadoFlete.kg)} kg) requiere camión; un asesor te lo confirma
+                  </p>
+                )}
+                {resultadoFlete.tipo === 'sin_zona' && (
+                  <p className="text-xs text-amber-600 mt-0.5">* Flete no incluido — un asesor te lo confirma según tu zona</p>
                 )}
               </div>
               <div className="text-right">

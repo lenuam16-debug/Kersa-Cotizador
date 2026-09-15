@@ -64,6 +64,7 @@ export interface PasoForm {
   email?: string
   ciudad?: string
   municipio?: string
+  zona_entrega?: string   // nombre de ZONAS_FLETE, o 'otra' si no está en la lista
   fecha_proyecto?: string
   incluir_rodapie?: boolean
   ml_rodapie?: number

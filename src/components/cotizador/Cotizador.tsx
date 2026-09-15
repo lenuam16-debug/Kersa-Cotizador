@@ -42,6 +42,7 @@ export default function Cotizador() {
       const tieneColores = esVinil || esCocina
       const cantidad = esCocina ? datos.metros_lineales : datos.metros_cuadrados
       if (!datos.ciudad?.trim() || !datos.municipio?.trim()) return false
+      if (!datos.zona_entrega) return false
       if (!cantidad || cantidad <= 0) return false
       if (esVinil && cantidad < minimoM2Vinil(datos.municipio)) return false
       if (esVinil && !datos.tipo_piso_actual) return false
@@ -249,6 +250,7 @@ export default function Cotizador() {
             const falta = []
             if (!datos.ciudad?.trim()) falta.push('estado')
             if (datos.ciudad?.trim() && !datos.municipio?.trim()) falta.push('municipio')
+            if (!datos.zona_entrega) falta.push('zona de entrega')
             if (!cantidad || cantidad <= 0) falta.push(esCocina ? 'metros lineales de cocina' : 'área aproximada en m²')
             else if (esVinil && datos.municipio && cantidad < minimoM2Vinil(datos.municipio)) falta.push(`mínimo ${minimoM2Vinil(datos.municipio)} m² para ${datos.municipio}`)
             if (esVinil && !datos.tipo_piso_actual) falta.push('tipo de piso actual')

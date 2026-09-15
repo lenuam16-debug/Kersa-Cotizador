@@ -3,6 +3,7 @@
 import { Servicio, PasoForm, TipoPiso, PISOS_SIN_ACONDICIONAMIENTO } from '@/types'
 import { SERVICIOS, COLORES_VINIL, COLORES_COCINA, COSTO_ACONDICIONAMIENTO } from '@/lib/pricing'
 import { CIUDADES, CIUDADES_MUNICIPIOS, minimoM2Vinil } from '@/lib/ubicaciones'
+import { ZONAS_FLETE } from '@/lib/flete'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -76,6 +77,25 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
               {municipios.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
+        </div>
+
+        {/* Zona de entrega: define el flete con el mismo tabulador de la app */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Zona de entrega</label>
+          <select
+            value={datos.zona_entrega ?? ''}
+            onChange={(e) => onChange({ zona_entrega: e.target.value })}
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none bg-white"
+          >
+            <option value="">Selecciona la zona más cercana</option>
+            {ZONAS_FLETE.map(([nombre]) => <option key={nombre} value={nombre}>{nombre}</option>)}
+            <option value="otra">Otra zona (no está en la lista)</option>
+          </select>
+          <p className="text-xs text-gray-400 mt-1">
+            {datos.zona_entrega === 'otra'
+              ? 'Un asesor te confirmará el flete para tu zona.'
+              : 'El flete se calcula por la distancia y el peso del material.'}
+          </p>
         </div>
 
         {/* Aviso de metraje mínimo según municipio */}
