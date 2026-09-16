@@ -75,12 +75,32 @@ export default function TablaLeads() {
 
   const estadoInfo = (e: EstadoSeguimiento) => ESTADOS.find(s => s.valor === e)!
 
+  // Borra en cascada vía la función cotizacion-web (accion:'eliminar'): usa la
+  // service role del lado servidor para borrar también el registro en la app
+  // de vendedores y la visita técnica agendada, si las hubo. El anon key del
+  // navegador no tiene permiso de DELETE sobre estas tablas (a propósito).
   const eliminar = async (c: Cotizacion) => {
     setEliminando(true)
-    await fetch(`${SUPABASE_URL}/rest/v1/cotizaciones?id=eq.${c.id}`, {
-      method: 'DELETE',
-      headers: HEADERS,
-    })
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/cotizacion-web`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+        body: JSON.stringify({
+          accion: 'eliminar',
+          cotizacion_id: c.id,
+          numero_app: c.numero_app ?? null,
+          lead_id: c.lead_id ?? null,
+        }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        throw new Error(d?.error ?? `Error ${res.status}`)
+      }
+    } catch (e) {
+      alert(`No se pudo eliminar la cotización: ${e instanceof Error ? e.message : e}`)
+      setEliminando(false)
+      return
+    }
     setConfirmarEliminar(null)
     setDetalle(null)
     await cargar()

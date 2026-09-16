@@ -17,6 +17,7 @@ export interface Lead {
 export interface Cotizacion {
   id?: string
   lead_id?: string
+  numero_app?: string
   servicio: Servicio
   metros_cuadrados?: number
   metros_lineales?: number
