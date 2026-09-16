@@ -222,6 +222,7 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
 
   const esLVT = servicio === 'vinil-lvt'
   const esSPC = servicio === 'vinil-spc'
+  const esVinil = esLVT || esSPC
 
   // Para LVT calculamos el precio base SIN acondicionamiento (lo mostramos separado)
   const precio = calcularCotizacion(servicio, cantidad, false)
@@ -230,17 +231,18 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
   const fechaHoy = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })
   const nroCotizacion = numeroApp ?? (cotizacionId ? cotizacionId.slice(0, 8).toUpperCase() : 'PENDIENTE')
 
-  // Extras LVT: acondicionamiento siempre + 1 perfil de terminación.
-  // En SPC el acondicionamiento NO se suma de entrada: solo aplica si el
-  // técnico lo recomienda en la visita (mismo precio que LVT, ver aviso en
-  // PasoEspecificaciones). El FOAM sí es automático en todo piso SPC.
+  // El acondicionamiento SIEMPRE se suma en LVT, pero en SPC NO se suma de
+  // entrada: solo aplica si el técnico lo recomienda en la visita (mismo
+  // precio que LVT, ver aviso en PasoEspecificaciones). El perfil de
+  // terminación y el rodapié PVC son accesorios de instalación válidos para
+  // cualquier piso vinil (LVT o SPC). El FOAM sí es automático en todo piso SPC.
   const costoAcond = esLVT ? COSTO_ACOND_M2 * cantidad : 0
-  const costoPerfil = esLVT ? COSTO_PERFIL_TERMINACION : 0
+  const costoPerfil = esVinil ? COSTO_PERFIL_TERMINACION : 0
   const costoFoam = esSPC ? COSTO_FOAM_SPC * cantidad : 0
 
   // Rodapié PVC: usa ML ingresados por el cliente, o estima 90% del metraje
   const PRECIO_RODAPIE_ML = 9.6
-  const incluyeRodapie = esLVT && !!datos.incluir_rodapie
+  const incluyeRodapie = esVinil && !!datos.incluir_rodapie
   const mlRodapie = incluyeRodapie
     ? (datos.ml_rodapie ?? Math.ceil(cantidad * 0.9))
     : 0
@@ -442,8 +444,8 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
                 </tr>
               )}
 
-              {/* Fila 3: Perfil de terminación (LVT siempre) */}
-              {esLVT && (
+              {/* Fila 3: Perfil de terminación (todo piso vinil, LVT o SPC) */}
+              {esVinil && (
                 <tr>
                   <td className="py-2">
                     <p className="font-medium text-gray-800">Perfil de terminación</p>
@@ -522,7 +524,7 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
               <div>
                 <p className="text-sm font-semibold text-gray-700">TOTAL ESTIMADO</p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {esLVT ? 'Piso + Acondicionamiento + Perfil + Flete' : esSPC ? 'Piso + Foam + Flete' : 'Piso + Flete'}
+                  {esLVT ? 'Piso + Acondicionamiento + Perfil + Flete' : esSPC ? 'Piso + Foam + Perfil + Flete' : 'Piso + Flete'}
                 </p>
                 {resultadoFlete.tipo === 'camion' && (
                   <p className="text-xs text-amber-600 mt-0.5">
