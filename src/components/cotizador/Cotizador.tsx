@@ -151,36 +151,34 @@ export default function Cotizador() {
       let configCocina: Record<string, unknown> | null = null
 
       if (esCocina) {
-        const { calcularCotizacionCocina, ACABADOS_COCINA, TOPES_COCINA, LED_COCINA } = await import('@/lib/pricing')
-        const cocina = calcularCotizacionCocina({
-          acabado: datos.acabado_cocina, mlMueble: datos.metros_lineales,
-          tope: datos.tope_incluido !== false && datos.tope_material
-            ? { material: datos.tope_material, color: datos.tope_color, ml: datos.tope_ml ?? 0 } : undefined,
-          salpicadero: datos.salpicadero_incluido ? { ml: datos.salpicadero_ml ?? 0 } : undefined,
-          led: datos.led_incluido && datos.led_color ? { color: datos.led_color, ml: datos.led_ml ?? 0 } : undefined,
-          accesorios: datos.accesorios_cocina,
-        })
-        precioMin = precioMax = cocina?.total ?? 0
+        // Mismos ítems y mismo flete que ve el cliente en el resultado: el precio
+        // guardado en el CRM incluye el flete, igual que el total mostrado.
+        const { calcularCotizacionCocina, entradaCocinaDesdeForm, ACABADOS_COCINA } = await import('@/lib/pricing')
+        const { calcularFleteCocina, zonaCocinaDesdeMunicipio } = await import('@/lib/fleteCocina')
+        const entrada = entradaCocinaDesdeForm(datos)
+        const cocina = calcularCotizacionCocina(entrada)
+        const zona = zonaCocinaDesdeMunicipio(datos.municipio)
+        const flete = calcularFleteCocina(zona)
+        const montoFlete = flete.tipo === 'monto' ? flete.monto : 0
+        precioMin = precioMax = (cocina?.total ?? 0) + montoFlete
         const acabado = ACABADOS_COCINA.find(a => a.id === datos.acabado_cocina)
-        const tope = TOPES_COCINA.find(t => t.id === datos.tope_material)
-        const topeColor = tope?.colores.find(c => c.id === datos.tope_color)?.nombre
-        const led = LED_COCINA.find(l => l.id === datos.led_color)
         colorSeleccionado = acabado?.nombre ?? null
+        const itemsResumen = (cocina?.items ?? []).filter(i => i.grupo !== 'mueble')
         detallesTexto = [
-          tope ? `Tope: ${tope.nombre}${topeColor ? ` (${topeColor})` : ''} — ${datos.tope_ml ?? 0} ML` : null,
-          datos.salpicadero_incluido ? `Salpicadero: ${datos.salpicadero_ml ?? 0} ML` : null,
-          datos.led_incluido && led ? `LED: ${led.nombre} — ${datos.led_ml ?? 0} ML` : null,
-          (datos.accesorios_cocina && Object.values(datos.accesorios_cocina).some(v => v > 0))
-            ? `Accesorios: ${Object.entries(datos.accesorios_cocina).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(', ')}`
-            : null,
+          ...itemsResumen.map(i => `${i.nombre}: ${i.cantidad} ${i.unidad === 'ud' ? 'ud' : 'ML'}`),
+          flete.tipo === 'monto' ? `Flete ${flete.zona}: $${flete.monto}` : 'Flete: a confirmar por asesor',
           datos.detalles_adicionales || null,
         ].filter(Boolean).join(' | ') || null
         configCocina = {
-          acabado: datos.acabado_cocina, ml_mueble: datos.metros_lineales,
-          tope: datos.tope_incluido !== false ? { material: datos.tope_material, color: datos.tope_color, ml: datos.tope_ml } : null,
-          salpicadero: datos.salpicadero_incluido ? { ml: datos.salpicadero_ml } : null,
-          led: datos.led_incluido ? { color: datos.led_color, ml: datos.led_ml } : null,
+          acabado: datos.acabado_cocina, ml_mueble: entrada.mlMueble,
+          tope: entrada.tope ?? null,
+          salpicadero: entrada.salpicadero ?? null,
+          led: entrada.led ?? null,
           accesorios: datos.accesorios_cocina ?? null,
+          zona: zona ?? null,
+          flete: flete.tipo === 'monto' ? { sku: flete.sku, zona: flete.zona, monto: flete.monto } : null,
+          total_items: cocina?.total ?? 0,
+          items: cocina?.items ?? [],
         }
       } else {
         const { calcularCotizacion } = await import('@/lib/pricing')
@@ -260,7 +258,22 @@ export default function Cotizador() {
             {paso === 0 && (
               <PasoServicio
                 seleccionado={datos.servicio}
-                onSelect={(s: Servicio) => { actualizar({ servicio: s }); setPaso(1) }}
+                onSelect={(s: Servicio) => {
+                  // Al cambiar de familia (piso ↔ cocina) se limpian los campos del
+                  // otro servicio (zona, metros, colores...) para que no pasen la
+                  // validación del nuevo; contacto y ubicación se conservan.
+                  setDatos(prev => {
+                    if (prev.servicio === s) return prev
+                    const familia = (x?: Servicio) => (x === 'cocina-modular' ? 'cocina' : 'piso')
+                    if (prev.servicio && familia(prev.servicio) === familia(s)) return { ...prev, servicio: s }
+                    return {
+                      servicio: s,
+                      nombre: prev.nombre, telefono: prev.telefono, telefono_verificado: prev.telefono_verificado,
+                      email: prev.email, ciudad: prev.ciudad, municipio: prev.municipio, fecha_proyecto: prev.fecha_proyecto,
+                    }
+                  })
+                  setPaso(1)
+                }}
               />
             )}
             {paso === 1 && datos.servicio === 'cocina-modular' && (
@@ -294,7 +307,7 @@ export default function Cotizador() {
               const falta = camposFaltantesCocina(datos)
               return (
                 <p className="mt-4 text-center text-sm text-amber-600 font-medium">
-                  ⚠ Completa los siguientes campos: {falta.join(' · ')}
+                  Para continuar falta: {falta.join(' · ')}
                 </p>
               )
             }

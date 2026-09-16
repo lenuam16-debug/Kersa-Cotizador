@@ -43,7 +43,7 @@ export const SERVICIOS = {
   },
   'cocina-modular': {
     nombre: 'Cocina Modular',
-    descripcion: 'Diseño, fabricación e instalación desde $400/ML · entrega en 30 días hábiles',
+    descripcion: 'Diseño, fabricación e instalación a tu medida · mesón y extras se cotizan aparte · entrega en 30 días hábiles',
     unidad: 'ML',
     precioBase: 400,
     margen: 0.15,
@@ -175,13 +175,14 @@ export const COLORES_SPC_65MM: { id: string; nombre: string; imagen?: string }[]
 // Cocina modular — catálogo real (mismos SKU y precios que la app interna,
 // kersa-nube-flask/cotizador.html: COCINA_MODULOS, TOPES, COCINA_ACC, COCINA_LUZ,
 // COCINA_FLETE). El precio del acabado ya incluye fabricación e instalación.
-export const ACABADOS_COCINA: { id: AcabadoCocina; nombre: string; hex: string; precio: number; sku: string }[] = [
-  { id: 'blanco-mate',    nombre: 'Blanco Mate',       hex: '#F7F7F4', precio: 400, sku: 'SRV-COCINA-BLANCO' },
-  { id: 'formica-color',  nombre: 'Color Fórmica',     hex: '#C9A66B', precio: 500, sku: 'SRV-COCINA-FORMICA' },
-  { id: 'melamina-color', nombre: 'Melamina de Color', hex: '#5B6B73', precio: 600, sku: 'SRV-COCINA-MELAMINA' },
+export const ACABADOS_COCINA: { id: AcabadoCocina; nombre: string; descripcion: string; nota?: string; hex: string; precio: number; sku: string }[] = [
+  { id: 'blanco-mate',    nombre: 'Blanco Mate',       descripcion: 'Muebles blancos sin brillo. La opción más económica.', hex: '#F7F7F4', precio: 400, sku: 'SRV-COCINA-BLANCO' },
+  { id: 'formica-color',  nombre: 'Color Fórmica',     descripcion: 'Lámina de fórmica de color.', nota: 'Colores seleccionados en tienda', hex: '#C9A66B', precio: 500, sku: 'SRV-COCINA-FORMICA' },
+  { id: 'melamina-color', nombre: 'Melamina de Color', descripcion: 'Tablero de melamina en color o tono madera.', hex: '#5B6B73', precio: 600, sku: 'SRV-COCINA-MELAMINA' },
 ]
 
-// Tope (mesón) y salpicadero cobran al mismo precio/SKU del material elegido.
+// Tope (mesón) y salpicadero cobran al mismo precio del material elegido; el
+// salpicadero lleva SKU con prefijo SALP-, igual que en la app interna.
 export const TOPES_COCINA: {
   id: MaterialTope
   nombre: string
@@ -208,7 +209,7 @@ export const TOPES_COCINA: {
     ],
   },
   {
-    id: 'piedra-china', nombre: 'Piedra Sinterizada Lamitec/China', precio: 200, sku: 'SRV-TOPE-CHINA',
+    id: 'piedra-china', nombre: 'Piedra Sinterizada Lamitec', precio: 200, sku: 'SRV-TOPE-CHINA',
     colores: [
       { id: 'blanco', nombre: 'Blanco' },
       { id: 'negro',  nombre: 'Negro' },
@@ -216,15 +217,17 @@ export const TOPES_COCINA: {
   },
 ]
 
+export const TOPE_INCLUYE = 'Incluye piedra, fabricación e instalación'
+
 export const LED_COCINA: { id: ColorLed; nombre: string; precio: number; sku: string }[] = [
   { id: 'blanca',   nombre: 'Blanca',   precio: 50, sku: 'SRV-COCINA-LUZ-BLANCA' },
   { id: 'amarilla', nombre: 'Amarilla', precio: 50, sku: 'SRV-COCINA-LUZ-AMARILLA' },
 ]
 
-export const ACCESORIOS_COCINA: { id: keyof AccesoriosCocina; nombre: string; precio: number; sku: string }[] = [
-  { id: 'condimentero', nombre: 'Condimentero', precio: 200, sku: 'SRV-COCINA-CONDIMENTERO' },
-  { id: 'platera',      nombre: 'Platera',      precio: 120, sku: 'SRV-COCINA-PLATERA' },
-  { id: 'cubiertero',   nombre: 'Cubiertero',   precio: 80,  sku: 'SRV-COCINA-CUBIERTERO' },
+export const ACCESORIOS_COCINA: { id: keyof AccesoriosCocina; nombre: string; descripcion: string; precio: number; sku: string }[] = [
+  { id: 'condimentero', nombre: 'Condimentero', descripcion: 'Gaveta angosta que se desliza, para especias y botellas', precio: 200, sku: 'SRV-COCINA-CONDIMENTERO' },
+  { id: 'platera',      nombre: 'Platera',      descripcion: 'Organizador para escurrir y guardar platos dentro del mueble', precio: 120, sku: 'SRV-COCINA-PLATERA' },
+  { id: 'cubiertero',   nombre: 'Cubiertero',   descripcion: 'Bandeja con divisiones para cubiertos dentro de la gaveta', precio: 80,  sku: 'SRV-COCINA-CUBIERTERO' },
 ]
 
 // Flete plano por grupo de zona (no es por km/peso como el de piso vinil).
@@ -235,7 +238,9 @@ export const COCINA_FLETE_TIERS: { zonas: string[]; tarifa: number; sku: string;
 
 export interface ItemCocina {
   sku: string
-  nombre: string
+  nombre: string      // mismo texto que usa la app interna: viaja al historial y a WhatsApp
+  detalle?: string    // línea corta para el cliente (no se sincroniza)
+  grupo: 'mueble' | 'tope' | 'extra'
   unidad: 'metro lineal' | 'ud'
   cantidad: number
   precioUnit: number
@@ -251,16 +256,51 @@ export interface EntradaCocina {
   accesorios?: Partial<AccesoriosCocina>
 }
 
+const positivo = (n?: number) => (typeof n === 'number' && !isNaN(n) && n > 0 ? n : undefined)
+
+// Valores efectivos con los mismos defaults que el panel "ARMAR COCINA" de la
+// app interna (cocPanelDef): tope activado con el mismo ML del mueble y Cuarzo
+// (primera opción) si el cliente no eligió otro; salpicadero hereda el ML del
+// tope; el color del tope es opcional porque no cambia el precio.
+export function mlEfectivosCocina(d: { metros_lineales?: number; tope_ml?: number; salpicadero_ml?: number; led_ml?: number }) {
+  const mueble = positivo(d.metros_lineales)
+  const tope = positivo(d.tope_ml) ?? mueble
+  const salpicadero = positivo(d.salpicadero_ml) ?? tope
+  const led = positivo(d.led_ml)
+  return { mueble, tope, salpicadero, led }
+}
+
+export function entradaCocinaDesdeForm(d: {
+  acabado_cocina?: AcabadoCocina; metros_lineales?: number
+  tope_incluido?: boolean; tope_material?: MaterialTope; tope_color?: string; tope_ml?: number
+  salpicadero_incluido?: boolean; salpicadero_ml?: number
+  led_incluido?: boolean; led_color?: ColorLed; led_ml?: number
+  accesorios_cocina?: Partial<AccesoriosCocina>
+}): EntradaCocina {
+  const ml = mlEfectivosCocina(d)
+  const topeIncluido = d.tope_incluido !== false
+  return {
+    acabado: d.acabado_cocina,
+    mlMueble: ml.mueble,
+    tope: topeIncluido && ml.tope ? { material: d.tope_material ?? 'cuarzo', color: d.tope_color, ml: ml.tope } : undefined,
+    salpicadero: topeIncluido && d.salpicadero_incluido && ml.salpicadero ? { ml: ml.salpicadero } : undefined,
+    led: d.led_incluido && ml.led ? { color: d.led_color ?? 'blanca', ml: ml.led } : undefined,
+    accesorios: d.accesorios_cocina,
+  }
+}
+
 /** Suma lineal simple de todos los ítems elegidos: sin mínimo/máximo, sin
  * acondicionamiento/perfil/rodapié (eso es solo de piso vinil). El flete se
- * calcula aparte con calcularFleteCocina(). */
+ * calcula aparte con calcularFleteCocina(). Los `nombre` copian los títulos de
+ * la app interna (COCINA_MODULOS, TOPES, COCINA_LUZ, COCINA_ACC). */
 export function calcularCotizacionCocina(e: EntradaCocina): { items: ItemCocina[]; total: number } | null {
   if (!e.acabado || !e.mlMueble || e.mlMueble <= 0) return null
   const items: ItemCocina[] = []
 
   const acab = ACABADOS_COCINA.find(a => a.id === e.acabado)!
   items.push({
-    sku: acab.sku, nombre: `Cocina Modular — ${acab.nombre} (fabricación e instalación)`,
+    sku: acab.sku, nombre: `Cocina modular ${acab.nombre}${acab.nota ? ` (${acab.nota.toLowerCase()})` : ''}`,
+    detalle: 'Fabricación e instalación incluidas', grupo: 'mueble',
     unidad: 'metro lineal', cantidad: e.mlMueble, precioUnit: acab.precio, subtotal: acab.precio * e.mlMueble,
   })
 
@@ -268,13 +308,15 @@ export function calcularCotizacionCocina(e: EntradaCocina): { items: ItemCocina[
     const t = TOPES_COCINA.find(t => t.id === e.tope!.material)!
     const colorNombre = t.colores.find(c => c.id === e.tope!.color)?.nombre
     items.push({
-      sku: t.sku, nombre: `Tope de cocina — ${t.nombre}${colorNombre ? ` (${colorNombre})` : ''}`,
+      sku: t.sku, nombre: `Tope de ${t.nombre}${colorNombre ? ` — ${colorNombre}` : ''}`,
+      detalle: TOPE_INCLUYE, grupo: 'tope',
       unidad: 'metro lineal', cantidad: e.tope.ml, precioUnit: t.precio, subtotal: t.precio * e.tope.ml,
     })
 
     if (e.salpicadero && e.salpicadero.ml > 0) {
       items.push({
-        sku: t.sku, nombre: `Salpicadero — ${t.nombre}${colorNombre ? ` (${colorNombre})` : ''}`,
+        sku: `SALP-${t.sku}`, nombre: `Salpicadero en ${t.nombre}${colorNombre ? ` ${colorNombre}` : ''}`,
+        detalle: TOPE_INCLUYE, grupo: 'extra',
         unidad: 'metro lineal', cantidad: e.salpicadero.ml, precioUnit: t.precio, subtotal: t.precio * e.salpicadero.ml,
       })
     }
@@ -283,7 +325,7 @@ export function calcularCotizacionCocina(e: EntradaCocina): { items: ItemCocina[
   if (e.led && e.led.ml > 0) {
     const l = LED_COCINA.find(l => l.id === e.led!.color)!
     items.push({
-      sku: l.sku, nombre: `Cinta LED ${l.nombre}`,
+      sku: l.sku, nombre: `Luz LED ${l.nombre}`, detalle: 'Instalada', grupo: 'extra',
       unidad: 'metro lineal', cantidad: e.led.ml, precioUnit: l.precio, subtotal: l.precio * e.led.ml,
     })
   }
@@ -291,7 +333,7 @@ export function calcularCotizacionCocina(e: EntradaCocina): { items: ItemCocina[
   for (const acc of ACCESORIOS_COCINA) {
     const cant = e.accesorios?.[acc.id] ?? 0
     if (cant > 0) {
-      items.push({ sku: acc.sku, nombre: acc.nombre, unidad: 'ud', cantidad: cant, precioUnit: acc.precio, subtotal: acc.precio * cant })
+      items.push({ sku: acc.sku, nombre: `${acc.nombre} para cocina`, detalle: acc.descripcion, grupo: 'extra', unidad: 'ud', cantidad: cant, precioUnit: acc.precio, subtotal: acc.precio * cant })
     }
   }
 

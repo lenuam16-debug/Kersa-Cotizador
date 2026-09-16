@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 import { PasoForm } from '@/types'
 import {
   SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_LVT_3MM, COLORES_SPC, COSTO_FOAM_SPC,
-  ACABADOS_COCINA, calcularCotizacionCocina, type ItemCocina,
+  ACABADOS_COCINA, calcularCotizacionCocina, entradaCocinaDesdeForm, type ItemCocina,
 } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
 import { CheckCircle, CalendarCheck, MessageCircle, Printer, Loader2, AlertCircle } from 'lucide-react'
 import { track } from '@/lib/track'
 import { calcularFlete, KG_M2_VINIL, KG_ML_RODAPIE, type ResultadoFlete } from '@/lib/flete'
-import { calcularFleteCocina } from '@/lib/fleteCocina'
+import { calcularFleteCocina, zonaCocinaDesdeMunicipio } from '@/lib/fleteCocina'
 
 interface Props {
   datos: PasoForm
@@ -233,15 +233,8 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
 
   // Para LVT calculamos el precio base SIN acondicionamiento (lo mostramos separado)
   const precio = esCocina ? null : calcularCotizacion(servicio, cantidad, false)
-  const cocinaCalc = esCocina ? calcularCotizacionCocina({
-    acabado: datos.acabado_cocina, mlMueble: datos.metros_lineales,
-    tope: datos.tope_incluido !== false && datos.tope_material
-      ? { material: datos.tope_material, color: datos.tope_color, ml: datos.tope_ml ?? 0 } : undefined,
-    salpicadero: datos.salpicadero_incluido ? { ml: datos.salpicadero_ml ?? 0 } : undefined,
-    led: datos.led_incluido && datos.led_color ? { color: datos.led_color, ml: datos.led_ml ?? 0 } : undefined,
-    accesorios: datos.accesorios_cocina,
-  }) : null
-  const resultadoFleteCocina = esCocina ? calcularFleteCocina(datos.zona_entrega) : null
+  const cocinaCalc = esCocina ? calcularCotizacionCocina(entradaCocinaDesdeForm(datos)) : null
+  const resultadoFleteCocina = esCocina ? calcularFleteCocina(zonaCocinaDesdeMunicipio(datos.municipio)) : null
 
   const colores = servicio === 'vinil-spc' ? COLORES_SPC
     : servicio === 'vinil-lvt-3mm' ? COLORES_LVT_3MM
@@ -303,14 +296,15 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
     const lineas: { c: string; n: string; u: string; cant: number; m2: number | null; pUsd: number; subUsd: number }[] = []
 
     if (esCocina && cocinaCalc) {
+      // Mismas unidades que usa la app para cocina ('ml' / 'unidad')
       for (const item of cocinaCalc.items) {
         lineas.push({
-          c: item.sku, n: item.nombre, u: item.unidad === 'metro lineal' ? 'metro lineal' : 'unidad',
+          c: item.sku, n: item.nombre, u: item.unidad === 'metro lineal' ? 'ml' : 'unidad',
           cant: item.cantidad, m2: null, pUsd: item.precioUnit, subUsd: +item.subtotal.toFixed(2),
         })
       }
       if (resultadoFleteCocina?.tipo === 'monto') {
-        lineas.push({ c: resultadoFleteCocina.sku, n: `Flete y gastos operativos — ${resultadoFleteCocina.zona}`, u: 'servicio', cant: 1, m2: null, pUsd: resultadoFleteCocina.monto, subUsd: resultadoFleteCocina.monto })
+        lineas.push({ c: resultadoFleteCocina.sku, n: `Flete y gastos operativos — ${resultadoFleteCocina.titulo}`, u: 'servicio', cant: 1, m2: null, pUsd: resultadoFleteCocina.monto, subUsd: resultadoFleteCocina.monto })
       }
     } else {
       const nombreBase = `${info.nombre}${colorInfo ? ` — ${colorInfo.nombre}` : ''} (instalación incluida)`
@@ -454,9 +448,10 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
             <tbody className="divide-y divide-gray-50">
               {/* Cocina: una fila por cada ítem elegido (mueble, tope, salpicadero, LED, accesorios) */}
               {esCocina && cocinaCalc?.items.map((item: ItemCocina) => (
-                <tr key={item.sku + item.nombre}>
+                <tr key={item.sku}>
                   <td className="py-2">
                     <p className="font-medium text-gray-800">{item.nombre}</p>
+                    {item.detalle && <p className="text-xs text-gray-400">{item.detalle}</p>}
                   </td>
                   <td className="py-2 text-right text-gray-700">{item.cantidad} {item.unidad === 'metro lineal' ? 'ML' : 'ud'}</td>
                   <td className="py-2 text-right text-gray-700">${item.precioUnit}/{item.unidad === 'metro lineal' ? 'ML' : 'ud'}</td>
@@ -577,6 +572,11 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
               )}
             </tbody>
           </table>
+          {esCocina && (
+            <p className="text-xs text-gray-400 mt-3">
+              El precio cubre solo lo listado arriba: no incluye electrodomésticos ni lavaplatos. Las medidas son estimadas y se confirman en la visita técnica.
+            </p>
+          )}
         </div>
 
         {/* Total */}

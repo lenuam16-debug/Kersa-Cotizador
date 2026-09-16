@@ -118,7 +118,10 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
               step="0.5"
               placeholder="Ej: 25"
               value={datos.metros_cuadrados ?? ''}
-              onChange={(e) => onChange({ metros_cuadrados: parseFloat(e.target.value) })}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value)
+                onChange({ metros_cuadrados: isNaN(val) ? undefined : val })
+              }}
               className="w-40 px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none text-lg font-medium"
               style={{ borderColor: 'rgb(229 231 235)' }}
               onFocus={e => e.target.style.borderColor = '#134a9c'}
