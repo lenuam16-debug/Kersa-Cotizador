@@ -3,14 +3,15 @@
 import { useState, useRef, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Servicio } from '@/types'
-import { SERVICIOS, COLORES_VINIL, COLORES_COCINA } from '@/lib/pricing'
+import { SERVICIOS, COLORES_VINIL } from '@/lib/pricing'
 import { cn } from '@/lib/utils'
 import { Upload, Loader2, ArrowLeft, Sparkles, Download, Lock } from 'lucide-react'
 import Link from 'next/link'
 
+// El visualizador solo re-texturiza el plano del piso: no aplica a cocina
+// (mueble/tope), así que esa rama no existe aquí.
 function getColores(servicio: Servicio) {
-  if (servicio === 'cocina-modular') return COLORES_COCINA
-  if (servicio === 'vinil-lvt' || servicio === 'vinil-spc') return COLORES_VINIL
+  if (servicio === 'vinil-lvt' || servicio === 'vinil-lvt-3mm' || servicio === 'vinil-spc') return COLORES_VINIL
   return []
 }
 

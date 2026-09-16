@@ -1,7 +1,7 @@
 'use client'
 
 import { Servicio, PasoForm, TipoPiso, PISOS_SIN_ACONDICIONAMIENTO } from '@/types'
-import { SERVICIOS, COLORES_VINIL, COLORES_LVT_3MM, COLORES_SPC, COLORES_COCINA, COSTO_ACONDICIONAMIENTO } from '@/lib/pricing'
+import { SERVICIOS, COLORES_VINIL, COLORES_LVT_3MM, COLORES_SPC, COSTO_ACONDICIONAMIENTO } from '@/lib/pricing'
 import { CIUDADES, CIUDADES_MUNICIPIOS, minimoM2Vinil } from '@/lib/ubicaciones'
 import { ZONAS_FLETE } from '@/lib/flete'
 import { cn } from '@/lib/utils'
@@ -26,12 +26,10 @@ const esVinil = (s: Servicio) => s === 'vinil-lvt' || s === 'vinil-lvt-3mm' || s
 
 export default function PasoEspecificaciones({ servicio, datos, onChange }: Props) {
   const info = SERVICIOS[servicio]
-  const colores = servicio === 'cocina-modular' ? COLORES_COCINA
-    : servicio === 'vinil-spc' ? COLORES_SPC
+  const colores = servicio === 'vinil-spc' ? COLORES_SPC
     : servicio === 'vinil-lvt-3mm' ? COLORES_LVT_3MM
     : COLORES_VINIL
-  const mostrarColores = servicio === 'vinil-lvt' || servicio === 'vinil-lvt-3mm' || servicio === 'vinil-spc' || servicio === 'cocina-modular'
-  const esMetrosCuadrados = servicio !== 'cocina-modular'
+  const mostrarColores = true
 
   const requiereAcondicionamiento =
     esVinil(servicio) &&
@@ -111,20 +109,16 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
         {/* Medidas */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            {esMetrosCuadrados ? 'Área aproximada (m²)' : 'Metros lineales de cocina (ML)'}
+            Área aproximada (m²)
           </label>
           <div className="flex items-center gap-3">
             <input
               type="number"
               min="1"
               step="0.5"
-              placeholder={esMetrosCuadrados ? 'Ej: 25' : 'Ej: 3.5'}
-              value={esMetrosCuadrados ? datos.metros_cuadrados ?? '' : datos.metros_lineales ?? ''}
-              onChange={(e) => {
-                const val = parseFloat(e.target.value)
-                if (esMetrosCuadrados) onChange({ metros_cuadrados: val })
-                else onChange({ metros_lineales: val })
-              }}
+              placeholder="Ej: 25"
+              value={datos.metros_cuadrados ?? ''}
+              onChange={(e) => onChange({ metros_cuadrados: parseFloat(e.target.value) })}
               className="w-40 px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none text-lg font-medium"
               style={{ borderColor: 'rgb(229 231 235)' }}
               onFocus={e => e.target.style.borderColor = '#134a9c'}
@@ -133,9 +127,7 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
             <span className="text-gray-500 font-medium">{info.unidad}</span>
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            {esMetrosCuadrados
-              ? 'Ancho × Largo del espacio. Si no lo sabes exacto, pon un estimado.'
-              : 'Longitud total de los módulos de cocina que necesitas.'}
+            Ancho × Largo del espacio. Si no lo sabes exacto, pon un estimado.
           </p>
           {metrajeInsuficiente && (
             <p className="text-sm text-red-600 font-medium mt-2">

@@ -5,6 +5,7 @@ import { PasoForm, Servicio } from '@/types'
 import BarraProgreso from './BarraProgreso'
 import PasoServicio from './PasoServicio'
 import PasoEspecificaciones from './PasoEspecificaciones'
+import PasoCocina, { cocinaListaParaAvanzar, camposFaltantesCocina } from './PasoCocina'
 import PasoDatos from './PasoDatos'
 import PasoResultado from './PasoResultado'
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
@@ -29,7 +30,7 @@ export default function Cotizador() {
   useEffect(() => { track('1_llego_al_cotizador') }, [])
   useEffect(() => {
     if (paso === 1) track('2_eligio_servicio', datos.servicio)
-    if (paso === 2) track('3_completo_especificaciones', `${datos.metros_cuadrados ?? datos.metros_lineales} - ${datos.color_seleccionado}`)
+    if (paso === 2) track('3_completo_especificaciones', `${datos.metros_cuadrados ?? datos.metros_lineales} - ${datos.color_seleccionado ?? datos.acabado_cocina}`)
     if (paso === 3) track('6_vio_cotizacion')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paso])
@@ -37,16 +38,15 @@ export default function Cotizador() {
   const puedeAvanzar = () => {
     if (paso === 0) return !!datos.servicio
     if (paso === 1) {
-      const esCocina = datos.servicio === 'cocina-modular'
-      const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-spc'
-      const tieneColores = esVinil || esCocina
-      const cantidad = esCocina ? datos.metros_lineales : datos.metros_cuadrados
+      if (datos.servicio === 'cocina-modular') return cocinaListaParaAvanzar(datos)
+      const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-lvt-3mm' || datos.servicio === 'vinil-spc'
+      const cantidad = datos.metros_cuadrados
       if (!datos.ciudad?.trim() || !datos.municipio?.trim()) return false
       if (!datos.zona_entrega) return false
       if (!cantidad || cantidad <= 0) return false
       if (esVinil && cantidad < minimoM2Vinil(datos.municipio)) return false
       if (esVinil && !datos.tipo_piso_actual) return false
-      if (tieneColores && !datos.color_seleccionado) return false
+      if (esVinil && !datos.color_seleccionado) return false
       return true
     }
     if (paso === 2) {
@@ -144,11 +144,58 @@ export default function Cotizador() {
       setLeadId(leadId)
 
       // 2. Calcular precio client-side
-      const { calcularCotizacion } = await import('@/lib/pricing')
-      const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-spc'
-      const cantidad = datos.servicio === 'cocina-modular' ? (datos.metros_lineales ?? 0) : (datos.metros_cuadrados ?? 0)
-      const requiereAcond = esVinil && !!datos.tipo_piso_actual && !['granito', 'microcemento'].includes(datos.tipo_piso_actual)
-      const precio = calcularCotizacion(datos.servicio!, cantidad, requiereAcond)
+      const esCocina = datos.servicio === 'cocina-modular'
+      let precioMin = 0, precioMax = 0
+      let colorSeleccionado = datos.color_seleccionado || null
+      let detallesTexto: string | null = null
+      let configCocina: Record<string, unknown> | null = null
+
+      if (esCocina) {
+        const { calcularCotizacionCocina, ACABADOS_COCINA, TOPES_COCINA, LED_COCINA } = await import('@/lib/pricing')
+        const cocina = calcularCotizacionCocina({
+          acabado: datos.acabado_cocina, mlMueble: datos.metros_lineales,
+          tope: datos.tope_incluido !== false && datos.tope_material
+            ? { material: datos.tope_material, color: datos.tope_color, ml: datos.tope_ml ?? 0 } : undefined,
+          salpicadero: datos.salpicadero_incluido ? { ml: datos.salpicadero_ml ?? 0 } : undefined,
+          led: datos.led_incluido && datos.led_color ? { color: datos.led_color, ml: datos.led_ml ?? 0 } : undefined,
+          accesorios: datos.accesorios_cocina,
+        })
+        precioMin = precioMax = cocina?.total ?? 0
+        const acabado = ACABADOS_COCINA.find(a => a.id === datos.acabado_cocina)
+        const tope = TOPES_COCINA.find(t => t.id === datos.tope_material)
+        const topeColor = tope?.colores.find(c => c.id === datos.tope_color)?.nombre
+        const led = LED_COCINA.find(l => l.id === datos.led_color)
+        colorSeleccionado = acabado?.nombre ?? null
+        detallesTexto = [
+          tope ? `Tope: ${tope.nombre}${topeColor ? ` (${topeColor})` : ''} — ${datos.tope_ml ?? 0} ML` : null,
+          datos.salpicadero_incluido ? `Salpicadero: ${datos.salpicadero_ml ?? 0} ML` : null,
+          datos.led_incluido && led ? `LED: ${led.nombre} — ${datos.led_ml ?? 0} ML` : null,
+          (datos.accesorios_cocina && Object.values(datos.accesorios_cocina).some(v => v > 0))
+            ? `Accesorios: ${Object.entries(datos.accesorios_cocina).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(', ')}`
+            : null,
+          datos.detalles_adicionales || null,
+        ].filter(Boolean).join(' | ') || null
+        configCocina = {
+          acabado: datos.acabado_cocina, ml_mueble: datos.metros_lineales,
+          tope: datos.tope_incluido !== false ? { material: datos.tope_material, color: datos.tope_color, ml: datos.tope_ml } : null,
+          salpicadero: datos.salpicadero_incluido ? { ml: datos.salpicadero_ml } : null,
+          led: datos.led_incluido ? { color: datos.led_color, ml: datos.led_ml } : null,
+          accesorios: datos.accesorios_cocina ?? null,
+        }
+      } else {
+        const { calcularCotizacion } = await import('@/lib/pricing')
+        const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-lvt-3mm' || datos.servicio === 'vinil-spc'
+        const cantidad = datos.metros_cuadrados ?? 0
+        const requiereAcond = esVinil && !!datos.tipo_piso_actual && !['granito', 'microcemento'].includes(datos.tipo_piso_actual)
+        const precio = calcularCotizacion(datos.servicio!, cantidad, requiereAcond)
+        precioMin = precio?.min ?? 0
+        precioMax = precio?.max ?? 0
+        detallesTexto = [
+          datos.tipo_piso_actual ? `Piso actual: ${datos.tipo_piso_actual}` : null,
+          requiereAcond ? 'Requiere acondicionamiento' : null,
+          datos.detalles_adicionales || null,
+        ].filter(Boolean).join(' | ') || null
+      }
 
       // 3. Insert cotización
       const cotRes = await fetch(`${supabaseUrl}/rest/v1/cotizaciones`, {
@@ -156,15 +203,12 @@ export default function Cotizador() {
         headers,
         body: JSON.stringify({
           lead_id: leadId, servicio: datos.servicio,
-          metros_cuadrados: datos.servicio !== 'cocina-modular' ? datos.metros_cuadrados : null,
-          metros_lineales: datos.servicio === 'cocina-modular' ? datos.metros_lineales : null,
-          color_seleccionado: datos.color_seleccionado || null,
-          detalles_adicionales: [
-            datos.tipo_piso_actual ? `Piso actual: ${datos.tipo_piso_actual}` : null,
-            requiereAcond ? 'Requiere acondicionamiento' : null,
-            datos.detalles_adicionales || null,
-          ].filter(Boolean).join(' | ') || null,
-          precio_min: precio?.min ?? 0, precio_max: precio?.max ?? 0, estado: 'nuevo',
+          metros_cuadrados: !esCocina ? datos.metros_cuadrados : null,
+          metros_lineales: esCocina ? datos.metros_lineales : null,
+          color_seleccionado: colorSeleccionado,
+          detalles_adicionales: detallesTexto,
+          config_cocina: configCocina,
+          precio_min: precioMin, precio_max: precioMax, estado: 'nuevo',
         }),
       })
       const cotizaciones = await cotRes.json()
@@ -219,7 +263,10 @@ export default function Cotizador() {
                 onSelect={(s: Servicio) => { actualizar({ servicio: s }); setPaso(1) }}
               />
             )}
-            {paso === 1 && datos.servicio && (
+            {paso === 1 && datos.servicio === 'cocina-modular' && (
+              <PasoCocina datos={datos} onChange={actualizar} />
+            )}
+            {paso === 1 && datos.servicio && datos.servicio !== 'cocina-modular' && (
               <PasoEspecificaciones
                 servicio={datos.servicio}
                 datos={datos}
@@ -243,18 +290,24 @@ export default function Cotizador() {
 
           {/* Aviso de campos faltantes */}
           {paso === 1 && !puedeAvanzar() && (() => {
-            const esCocina = datos.servicio === 'cocina-modular'
-            const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-spc'
-            const tieneColores = esVinil || esCocina
-            const cantidad = esCocina ? datos.metros_lineales : datos.metros_cuadrados
+            if (datos.servicio === 'cocina-modular') {
+              const falta = camposFaltantesCocina(datos)
+              return (
+                <p className="mt-4 text-center text-sm text-amber-600 font-medium">
+                  ⚠ Completa los siguientes campos: {falta.join(' · ')}
+                </p>
+              )
+            }
+            const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-lvt-3mm' || datos.servicio === 'vinil-spc'
+            const cantidad = datos.metros_cuadrados
             const falta = []
             if (!datos.ciudad?.trim()) falta.push('estado')
             if (datos.ciudad?.trim() && !datos.municipio?.trim()) falta.push('municipio')
             if (!datos.zona_entrega) falta.push('zona de entrega')
-            if (!cantidad || cantidad <= 0) falta.push(esCocina ? 'metros lineales de cocina' : 'área aproximada en m²')
+            if (!cantidad || cantidad <= 0) falta.push('área aproximada en m²')
             else if (esVinil && datos.municipio && cantidad < minimoM2Vinil(datos.municipio)) falta.push(`mínimo ${minimoM2Vinil(datos.municipio)} m² para ${datos.municipio}`)
             if (esVinil && !datos.tipo_piso_actual) falta.push('tipo de piso actual')
-            if (tieneColores && !datos.color_seleccionado) falta.push('modelo / color')
+            if (esVinil && !datos.color_seleccionado) falta.push('modelo / color')
             return (
               <p className="mt-4 text-center text-sm text-amber-600 font-medium">
                 ⚠ Completa los siguientes campos: {falta.join(' · ')}

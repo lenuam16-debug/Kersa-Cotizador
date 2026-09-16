@@ -2,11 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { PasoForm } from '@/types'
-import { SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_LVT_3MM, COLORES_SPC, COLORES_COCINA, COSTO_FOAM_SPC } from '@/lib/pricing'
+import {
+  SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_LVT_3MM, COLORES_SPC, COSTO_FOAM_SPC,
+  ACABADOS_COCINA, calcularCotizacionCocina, type ItemCocina,
+} from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
 import { CheckCircle, CalendarCheck, MessageCircle, Printer, Loader2, AlertCircle } from 'lucide-react'
 import { track } from '@/lib/track'
 import { calcularFlete, KG_M2_VINIL, KG_ML_RODAPIE, type ResultadoFlete } from '@/lib/flete'
+import { calcularFleteCocina } from '@/lib/fleteCocina'
 
 interface Props {
   datos: PasoForm
@@ -216,7 +220,8 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
 
   const servicio = datos.servicio!
   const info = SERVICIOS[servicio]
-  const cantidad = servicio === 'cocina-modular'
+  const esCocina = servicio === 'cocina-modular'
+  const cantidad = esCocina
     ? datos.metros_lineales ?? 0
     : datos.metros_cuadrados ?? 0
 
@@ -227,12 +232,23 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
   const esVinil = esLVT || esSPC
 
   // Para LVT calculamos el precio base SIN acondicionamiento (lo mostramos separado)
-  const precio = calcularCotizacion(servicio, cantidad, false)
-  const colores = servicio === 'cocina-modular' ? COLORES_COCINA
-    : servicio === 'vinil-spc' ? COLORES_SPC
+  const precio = esCocina ? null : calcularCotizacion(servicio, cantidad, false)
+  const cocinaCalc = esCocina ? calcularCotizacionCocina({
+    acabado: datos.acabado_cocina, mlMueble: datos.metros_lineales,
+    tope: datos.tope_incluido !== false && datos.tope_material
+      ? { material: datos.tope_material, color: datos.tope_color, ml: datos.tope_ml ?? 0 } : undefined,
+    salpicadero: datos.salpicadero_incluido ? { ml: datos.salpicadero_ml ?? 0 } : undefined,
+    led: datos.led_incluido && datos.led_color ? { color: datos.led_color, ml: datos.led_ml ?? 0 } : undefined,
+    accesorios: datos.accesorios_cocina,
+  }) : null
+  const resultadoFleteCocina = esCocina ? calcularFleteCocina(datos.zona_entrega) : null
+
+  const colores = servicio === 'vinil-spc' ? COLORES_SPC
     : servicio === 'vinil-lvt-3mm' ? COLORES_LVT_3MM
     : COLORES_VINIL
-  const colorInfo = colores.find(c => c.id === datos.color_seleccionado)
+  const colorInfo = esCocina
+    ? ACABADOS_COCINA.find(a => a.id === datos.acabado_cocina)
+    : colores.find(c => c.id === datos.color_seleccionado)
   const fechaHoy = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })
   const nroCotizacion = numeroApp ?? (cotizacionId ? cotizacionId.slice(0, 8).toUpperCase() : 'PENDIENTE')
 
@@ -266,7 +282,10 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
 
   // Usamos precio.max como precio estándar (precio completo, sin descuento mínimo)
   const costoBase = precio ? precio.max : 0
-  const total = precio ? costoBase + costoAcond + costoPerfil + costoFoam + costoRodapie + (flete ?? 0) : null
+  const fleteCocina = resultadoFleteCocina?.tipo === 'monto' ? resultadoFleteCocina.monto : null
+  const total = esCocina
+    ? (cocinaCalc ? cocinaCalc.total + (fleteCocina ?? 0) : null)
+    : (precio ? costoBase + costoAcond + costoPerfil + costoFoam + costoRodapie + (flete ?? 0) : null)
 
   const whatsappMsg = encodeURIComponent(
     `Hola, acabo de generar mi cotización #${nroCotizacion} en KersaDesign para ${info.nombre}${colorInfo ? ` (${colorInfo.nombre})` : ''} — ${cantidad} ${info.unidad}${total ? `. Total estimado: ${formatCurrency(total)}` : ''}. Me gustaría más información.`
@@ -278,24 +297,37 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
   // la función cotizacion-web: entra al historial con numeración COT unificada
   // y los vendedores pueden procesar la venta desde allí.
   useEffect(() => {
-    if (!cotizacionId || !precio || enviadaAppRef.current === cotizacionId) return
+    if (!cotizacionId || (esCocina ? !cocinaCalc : !precio) || enviadaAppRef.current === cotizacionId) return
     enviadaAppRef.current = cotizacionId
 
     const lineas: { c: string; n: string; u: string; cant: number; m2: number | null; pUsd: number; subUsd: number }[] = []
-    const nombreBase = `${info.nombre}${colorInfo ? ` — ${colorInfo.nombre}` : ''} (instalación incluida)`
-    // unidades con el mismo nombre que usa la app (ML → metro lineal)
-    const unidadServicio = info.unidad === 'ML' ? 'metro lineal' : info.unidad
-    lineas.push({
-      c: `WEB-${servicio.toUpperCase()}`, n: nombreBase, u: unidadServicio,
-      cant: cantidad, m2: servicio !== 'cocina-modular' ? cantidad : null,
-      pUsd: cantidad ? +(costoBase / cantidad).toFixed(2) : costoBase, subUsd: +costoBase.toFixed(2),
-    })
-    if (costoAcond > 0) lineas.push({ c: 'WEB-ACOND', n: 'Acondicionamiento de piso', u: 'm²', cant: cantidad, m2: cantidad, pUsd: COSTO_ACOND_M2, subUsd: +costoAcond.toFixed(2) })
-    if (costoPerfil > 0) lineas.push({ c: 'WEB-PERFIL', n: 'Perfil de terminación', u: 'ud', cant: 1, m2: null, pUsd: costoPerfil, subUsd: costoPerfil })
-    if (costoFoam > 0) lineas.push({ c: 'WEB-FOAM', n: 'Foam (base niveladora, incluido en piso clic)', u: 'm²', cant: cantidad, m2: cantidad, pUsd: COSTO_FOAM_SPC, subUsd: +costoFoam.toFixed(2) })
-    if (costoRodapie > 0) lineas.push({ c: 'WEB-RODAPIE', n: 'Rodapié PVC (instalación y carateo)', u: 'metro lineal', cant: mlRodapie, m2: null, pUsd: PRECIO_RODAPIE_ML, subUsd: +costoRodapie.toFixed(2) })
-    // Mismo renglón que agrega la app: "Flete a <zona>", unidad servicio
-    if (resultadoFlete.tipo === 'monto') lineas.push({ c: 'SRV-FLETE', n: `Flete a ${resultadoFlete.zona}`, u: 'servicio', cant: 1, m2: null, pUsd: resultadoFlete.monto, subUsd: resultadoFlete.monto })
+
+    if (esCocina && cocinaCalc) {
+      for (const item of cocinaCalc.items) {
+        lineas.push({
+          c: item.sku, n: item.nombre, u: item.unidad === 'metro lineal' ? 'metro lineal' : 'unidad',
+          cant: item.cantidad, m2: null, pUsd: item.precioUnit, subUsd: +item.subtotal.toFixed(2),
+        })
+      }
+      if (resultadoFleteCocina?.tipo === 'monto') {
+        lineas.push({ c: resultadoFleteCocina.sku, n: `Flete y gastos operativos — ${resultadoFleteCocina.zona}`, u: 'servicio', cant: 1, m2: null, pUsd: resultadoFleteCocina.monto, subUsd: resultadoFleteCocina.monto })
+      }
+    } else {
+      const nombreBase = `${info.nombre}${colorInfo ? ` — ${colorInfo.nombre}` : ''} (instalación incluida)`
+      // unidades con el mismo nombre que usa la app (ML → metro lineal)
+      const unidadServicio = info.unidad === 'ML' ? 'metro lineal' : info.unidad
+      lineas.push({
+        c: `WEB-${servicio.toUpperCase()}`, n: nombreBase, u: unidadServicio,
+        cant: cantidad, m2: cantidad,
+        pUsd: cantidad ? +(costoBase / cantidad).toFixed(2) : costoBase, subUsd: +costoBase.toFixed(2),
+      })
+      if (costoAcond > 0) lineas.push({ c: 'WEB-ACOND', n: 'Acondicionamiento de piso', u: 'm²', cant: cantidad, m2: cantidad, pUsd: COSTO_ACOND_M2, subUsd: +costoAcond.toFixed(2) })
+      if (costoPerfil > 0) lineas.push({ c: 'WEB-PERFIL', n: 'Perfil de terminación', u: 'ud', cant: 1, m2: null, pUsd: costoPerfil, subUsd: costoPerfil })
+      if (costoFoam > 0) lineas.push({ c: 'WEB-FOAM', n: 'Foam (base niveladora, incluido en piso clic)', u: 'm²', cant: cantidad, m2: cantidad, pUsd: COSTO_FOAM_SPC, subUsd: +costoFoam.toFixed(2) })
+      if (costoRodapie > 0) lineas.push({ c: 'WEB-RODAPIE', n: 'Rodapié PVC (instalación y carateo)', u: 'metro lineal', cant: mlRodapie, m2: null, pUsd: PRECIO_RODAPIE_ML, subUsd: +costoRodapie.toFixed(2) })
+      // Mismo renglón que agrega la app: "Flete a <zona>", unidad servicio
+      if (resultadoFlete.tipo === 'monto') lineas.push({ c: 'SRV-FLETE', n: `Flete a ${resultadoFlete.zona}`, u: 'servicio', cant: 1, m2: null, pUsd: resultadoFlete.monto, subUsd: resultadoFlete.monto })
+    }
 
     // Mismo formato exacto que textoCotizacion() del cotizador de la app
     // (app.kersadesign.com, rama de divisa): así una cotización web y una de
@@ -420,7 +452,31 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {/* Fila 1: Material + instalación */}
+              {/* Cocina: una fila por cada ítem elegido (mueble, tope, salpicadero, LED, accesorios) */}
+              {esCocina && cocinaCalc?.items.map((item: ItemCocina) => (
+                <tr key={item.sku + item.nombre}>
+                  <td className="py-2">
+                    <p className="font-medium text-gray-800">{item.nombre}</p>
+                  </td>
+                  <td className="py-2 text-right text-gray-700">{item.cantidad} {item.unidad === 'metro lineal' ? 'ML' : 'ud'}</td>
+                  <td className="py-2 text-right text-gray-700">${item.precioUnit}/{item.unidad === 'metro lineal' ? 'ML' : 'ud'}</td>
+                  <td className="py-2 text-right font-semibold text-gray-800">{formatCurrency(item.subtotal)}</td>
+                </tr>
+              ))}
+              {esCocina && fleteCocina !== null && resultadoFleteCocina?.tipo === 'monto' && (
+                <tr>
+                  <td className="py-2">
+                    <p className="font-medium text-gray-800">Flete y gastos operativos</p>
+                    <p className="text-xs text-gray-400">Zona: {resultadoFleteCocina.zona}</p>
+                  </td>
+                  <td className="py-2 text-right text-gray-700">1</td>
+                  <td className="py-2 text-right text-gray-700">—</td>
+                  <td className="py-2 text-right font-semibold text-gray-800">{formatCurrency(fleteCocina)}</td>
+                </tr>
+              )}
+
+              {/* Fila 1: Material + instalación (piso vinil) */}
+              {!esCocina && (
               <tr>
                 <td className="py-2">
                   <p className="font-medium text-gray-800">{info.nombre}</p>
@@ -435,6 +491,7 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
                   {precio ? formatCurrency(costoBase) : 'Personalizada'}
                 </td>
               </tr>
+              )}
 
               {/* Fila 2: Acondicionamiento (LVT siempre) */}
               {esLVT && (
@@ -529,14 +586,17 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
               <div>
                 <p className="text-sm font-semibold text-gray-700">TOTAL ESTIMADO</p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {esLVT ? 'Piso + Acondicionamiento + Perfil + Flete' : esSPC ? 'Piso + Foam + Perfil + Flete' : 'Piso + Flete'}
+                  {esCocina ? 'Mueble + Tope + Extras + Flete' : esLVT ? 'Piso + Acondicionamiento + Perfil + Flete' : esSPC ? 'Piso + Foam + Perfil + Flete' : 'Piso + Flete'}
                 </p>
-                {resultadoFlete.tipo === 'camion' && (
+                {!esCocina && resultadoFlete.tipo === 'camion' && (
                   <p className="text-xs text-amber-600 mt-0.5">
                     * Flete no incluido — la carga (≈ {Math.round(resultadoFlete.kg)} kg) requiere camión; un asesor te lo confirma
                   </p>
                 )}
-                {resultadoFlete.tipo === 'sin_zona' && (
+                {!esCocina && resultadoFlete.tipo === 'sin_zona' && (
+                  <p className="text-xs text-amber-600 mt-0.5">* Flete no incluido — un asesor te lo confirma según tu zona</p>
+                )}
+                {esCocina && resultadoFleteCocina?.tipo === 'sin_zona' && (
                   <p className="text-xs text-amber-600 mt-0.5">* Flete no incluido — un asesor te lo confirma según tu zona</p>
                 )}
               </div>

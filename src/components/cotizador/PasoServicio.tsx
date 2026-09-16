@@ -13,13 +13,10 @@ const IMAGENES: Record<string, string> = {
 }
 
 /**
- * Servicios que el cotizador web ofrece hoy.
- *
- * Solo vinil mientras se termina el resto del sistema. Los precios y textos de
- * los demás siguen en pricing.ts: para volver a ofrecer uno basta agregar su
- * clave aquí (ej: 'cocina-modular').
+ * Servicios que el cotizador web ofrece hoy. Los precios y textos de los
+ * demás (laminas-pvc, wallpanel) siguen en pricing.ts para cuando se activen.
  */
-const SERVICIOS_ACTIVOS: Servicio[] = ['vinil-lvt', 'vinil-lvt-3mm', 'vinil-spc']
+const SERVICIOS_ACTIVOS: Servicio[] = ['vinil-lvt', 'vinil-lvt-3mm', 'vinil-spc', 'cocina-modular']
 
 interface Props {
   seleccionado?: Servicio
@@ -32,7 +29,11 @@ export default function PasoServicio({ seleccionado, onSelect }: Props) {
       <h2 className="text-2xl font-bold text-gray-800 mb-2">¿Qué servicio necesitas?</h2>
       <p className="text-gray-500 mb-8">Selecciona el tipo de instalación que deseas cotizar</p>
 
-      <div className={cn('grid grid-cols-1 gap-4', SERVICIOS_ACTIVOS.length > 1 ? 'sm:grid-cols-3 max-w-3xl' : 'max-w-sm')}>
+      <div className={cn(
+        'grid grid-cols-1 gap-4',
+        SERVICIOS_ACTIVOS.length >= 4 ? 'sm:grid-cols-2 lg:grid-cols-4 max-w-4xl'
+          : SERVICIOS_ACTIVOS.length > 1 ? 'sm:grid-cols-3 max-w-3xl' : 'max-w-sm'
+      )}>
         {(Object.entries(SERVICIOS) as [Servicio, typeof SERVICIOS[Servicio]][]).filter(([key]) => SERVICIOS_ACTIVOS.includes(key)).map(([key, s]) => (
           <button
             key={key}

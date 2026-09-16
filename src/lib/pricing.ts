@@ -1,4 +1,4 @@
-import { Servicio } from '@/types'
+import { Servicio, AcabadoCocina, MaterialTope, ColorLed, AccesoriosCocina } from '@/types'
 
 export const SERVICIOS = {
   'vinil-lvt': {
@@ -172,10 +172,129 @@ export const COLORES_SPC_65MM: { id: string; nombre: string; imagen?: string }[]
   { id: 'decoroyal-denver',   nombre: 'Decoroyal Denver',   imagen: '/materiales/spc-6-5mm/decoroyal-denver.jpg' },
 ]
 
-export const COLORES_COCINA: { id: string; nombre: string; hex?: string; imagen?: string }[] = [
-  { id: 'blanco-mate', nombre: 'Blanco Mate', hex: '#F8F8F5' },
-  { id: 'gris-perla', nombre: 'Gris Perla', hex: '#D0CDC8' },
-  { id: 'negro-mate', nombre: 'Negro Mate', hex: '#2C2C2C' },
-  { id: 'madera-clara', nombre: 'Madera Clara', hex: '#C8A882' },
-  { id: 'verde-sage', nombre: 'Verde Sage', hex: '#8FAF8A' },
+// Cocina modular — catálogo real (mismos SKU y precios que la app interna,
+// kersa-nube-flask/cotizador.html: COCINA_MODULOS, TOPES, COCINA_ACC, COCINA_LUZ,
+// COCINA_FLETE). El precio del acabado ya incluye fabricación e instalación.
+export const ACABADOS_COCINA: { id: AcabadoCocina; nombre: string; hex: string; precio: number; sku: string }[] = [
+  { id: 'blanco-mate',    nombre: 'Blanco Mate',       hex: '#F7F7F4', precio: 400, sku: 'SRV-COCINA-BLANCO' },
+  { id: 'formica-color',  nombre: 'Color Fórmica',     hex: '#C9A66B', precio: 500, sku: 'SRV-COCINA-FORMICA' },
+  { id: 'melamina-color', nombre: 'Melamina de Color', hex: '#5B6B73', precio: 600, sku: 'SRV-COCINA-MELAMINA' },
 ]
+
+// Tope (mesón) y salpicadero cobran al mismo precio/SKU del material elegido.
+export const TOPES_COCINA: {
+  id: MaterialTope
+  nombre: string
+  precio: number
+  sku: string
+  colores: { id: string; nombre: string }[]
+}[] = [
+  {
+    id: 'cuarzo', nombre: 'Cuarzo', precio: 150, sku: 'SRV-TOPE-CUARZO',
+    colores: [
+      { id: 'blanco-estelar', nombre: 'Blanco Estelar' },
+      { id: 'negro-estelar',  nombre: 'Negro Estelar' },
+      { id: 'gris-estelar',   nombre: 'Gris Estelar' },
+    ],
+  },
+  {
+    id: 'piedra-esp', nombre: 'Piedra Sinterizada Española', precio: 300, sku: 'SRV-TOPE-ESP',
+    colores: [
+      { id: 'laminam', nombre: 'Laminam' },
+      { id: 'ascale',  nombre: 'Ascale' },
+      { id: 'techlam', nombre: 'Techlam' },
+      { id: 'lapitec', nombre: 'Lapitec' },
+      { id: 'compac',  nombre: 'Compac' },
+    ],
+  },
+  {
+    id: 'piedra-china', nombre: 'Piedra Sinterizada Lamitec/China', precio: 200, sku: 'SRV-TOPE-CHINA',
+    colores: [
+      { id: 'blanco', nombre: 'Blanco' },
+      { id: 'negro',  nombre: 'Negro' },
+    ],
+  },
+]
+
+export const LED_COCINA: { id: ColorLed; nombre: string; precio: number; sku: string }[] = [
+  { id: 'blanca',   nombre: 'Blanca',   precio: 50, sku: 'SRV-COCINA-LUZ-BLANCA' },
+  { id: 'amarilla', nombre: 'Amarilla', precio: 50, sku: 'SRV-COCINA-LUZ-AMARILLA' },
+]
+
+export const ACCESORIOS_COCINA: { id: keyof AccesoriosCocina; nombre: string; precio: number; sku: string }[] = [
+  { id: 'condimentero', nombre: 'Condimentero', precio: 200, sku: 'SRV-COCINA-CONDIMENTERO' },
+  { id: 'platera',      nombre: 'Platera',      precio: 120, sku: 'SRV-COCINA-PLATERA' },
+  { id: 'cubiertero',   nombre: 'Cubiertero',   precio: 80,  sku: 'SRV-COCINA-CUBIERTERO' },
+]
+
+// Flete plano por grupo de zona (no es por km/peso como el de piso vinil).
+export const COCINA_FLETE_TIERS: { zonas: string[]; tarifa: number; sku: string; titulo: string }[] = [
+  { zonas: ['Libertador', 'Chacao', 'Sucre', 'Baruta'], tarifa: 200, sku: 'SRV-COCINA-FLETE-1', titulo: 'Libertador / Chacao / Sucre / Baruta' },
+  { zonas: ['El Hatillo', 'La Guaira', 'Los Teques'],   tarifa: 350, sku: 'SRV-COCINA-FLETE-2', titulo: 'El Hatillo / La Guaira / Los Teques' },
+]
+
+export interface ItemCocina {
+  sku: string
+  nombre: string
+  unidad: 'metro lineal' | 'ud'
+  cantidad: number
+  precioUnit: number
+  subtotal: number
+}
+
+export interface EntradaCocina {
+  acabado?: AcabadoCocina
+  mlMueble?: number
+  tope?: { material: MaterialTope; color?: string; ml: number }
+  salpicadero?: { ml: number }
+  led?: { color: ColorLed; ml: number }
+  accesorios?: Partial<AccesoriosCocina>
+}
+
+/** Suma lineal simple de todos los ítems elegidos: sin mínimo/máximo, sin
+ * acondicionamiento/perfil/rodapié (eso es solo de piso vinil). El flete se
+ * calcula aparte con calcularFleteCocina(). */
+export function calcularCotizacionCocina(e: EntradaCocina): { items: ItemCocina[]; total: number } | null {
+  if (!e.acabado || !e.mlMueble || e.mlMueble <= 0) return null
+  const items: ItemCocina[] = []
+
+  const acab = ACABADOS_COCINA.find(a => a.id === e.acabado)!
+  items.push({
+    sku: acab.sku, nombre: `Cocina Modular — ${acab.nombre} (fabricación e instalación)`,
+    unidad: 'metro lineal', cantidad: e.mlMueble, precioUnit: acab.precio, subtotal: acab.precio * e.mlMueble,
+  })
+
+  if (e.tope && e.tope.ml > 0) {
+    const t = TOPES_COCINA.find(t => t.id === e.tope!.material)!
+    const colorNombre = t.colores.find(c => c.id === e.tope!.color)?.nombre
+    items.push({
+      sku: t.sku, nombre: `Tope de cocina — ${t.nombre}${colorNombre ? ` (${colorNombre})` : ''}`,
+      unidad: 'metro lineal', cantidad: e.tope.ml, precioUnit: t.precio, subtotal: t.precio * e.tope.ml,
+    })
+
+    if (e.salpicadero && e.salpicadero.ml > 0) {
+      items.push({
+        sku: t.sku, nombre: `Salpicadero — ${t.nombre}${colorNombre ? ` (${colorNombre})` : ''}`,
+        unidad: 'metro lineal', cantidad: e.salpicadero.ml, precioUnit: t.precio, subtotal: t.precio * e.salpicadero.ml,
+      })
+    }
+  }
+
+  if (e.led && e.led.ml > 0) {
+    const l = LED_COCINA.find(l => l.id === e.led!.color)!
+    items.push({
+      sku: l.sku, nombre: `Cinta LED ${l.nombre}`,
+      unidad: 'metro lineal', cantidad: e.led.ml, precioUnit: l.precio, subtotal: l.precio * e.led.ml,
+    })
+  }
+
+  for (const acc of ACCESORIOS_COCINA) {
+    const cant = e.accesorios?.[acc.id] ?? 0
+    if (cant > 0) {
+      items.push({ sku: acc.sku, nombre: acc.nombre, unidad: 'ud', cantidad: cant, precioUnit: acc.precio, subtotal: acc.precio * cant })
+    }
+  }
+
+  const total = Math.round(items.reduce((s, i) => s + i.subtotal, 0) * 100) / 100
+  return { items, total }
+}
