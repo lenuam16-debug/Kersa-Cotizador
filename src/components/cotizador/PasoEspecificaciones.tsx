@@ -168,24 +168,34 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
 
             {/* Aviso de acondicionamiento */}
             {datos.tipo_piso_actual && (
-              <div className={cn(
-                'mt-3 p-3 rounded-xl text-sm',
-                requiereAcondicionamiento
-                  ? 'bg-amber-50 border border-amber-200 text-amber-800'
-                  : 'bg-green-50 border border-green-200 text-green-800'
-              )}>
-                {requiereAcondicionamiento ? (
-                  <>
-                    <p className="font-semibold">Se requiere acondicionamiento de piso</p>
-                    <p className="mt-0.5">Se agrega <strong>${COSTO_ACONDICIONAMIENTO}/m²</strong> estimado. El precio final puede variar entre $3–$7/m² según las condiciones del piso, lo cual será confirmado por nuestros asesores.</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-semibold">¡No requiere acondicionamiento!</p>
-                    <p className="mt-0.5">Tu piso actual permite instalar el vinil directamente.</p>
-                  </>
-                )}
-              </div>
+              servicio === 'vinil-spc' ? (
+                <div className="mt-3 p-3 rounded-xl text-sm bg-blue-50 border border-blue-200 text-blue-800">
+                  <p className="font-semibold">Acondicionamiento sujeto a evaluación técnica</p>
+                  <p className="mt-0.5">
+                    En piso tipo clic (SPC) el acondicionamiento solo será necesario si nuestro visitador/técnico lo recomienda en la visita.
+                    Si aplica, se maneja el mismo precio que en Vinil LVT: <strong>${COSTO_ACONDICIONAMIENTO}/m²</strong> estimado (puede variar entre $3–$7/m² según las condiciones del piso).
+                  </p>
+                </div>
+              ) : (
+                <div className={cn(
+                  'mt-3 p-3 rounded-xl text-sm',
+                  requiereAcondicionamiento
+                    ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                    : 'bg-green-50 border border-green-200 text-green-800'
+                )}>
+                  {requiereAcondicionamiento ? (
+                    <>
+                      <p className="font-semibold">Se requiere acondicionamiento de piso</p>
+                      <p className="mt-0.5">Se agrega <strong>${COSTO_ACONDICIONAMIENTO}/m²</strong> estimado. El precio final puede variar entre $3–$7/m² según las condiciones del piso, lo cual será confirmado por nuestros asesores.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-semibold">¡No requiere acondicionamiento!</p>
+                      <p className="mt-0.5">Tu piso actual permite instalar el vinil directamente.</p>
+                    </>
+                  )}
+                </div>
+              )
             )}
           </div>
         )}

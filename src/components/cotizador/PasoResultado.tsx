@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { PasoForm } from '@/types'
-import { SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_COCINA } from '@/lib/pricing'
+import { SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_SPC, COLORES_COCINA, COSTO_FOAM_SPC } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
 import { CheckCircle, CalendarCheck, MessageCircle, Printer, Loader2, AlertCircle } from 'lucide-react'
 import { track } from '@/lib/track'
@@ -221,17 +221,22 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
     : datos.metros_cuadrados ?? 0
 
   const esLVT = servicio === 'vinil-lvt'
+  const esSPC = servicio === 'vinil-spc'
 
   // Para LVT calculamos el precio base SIN acondicionamiento (lo mostramos separado)
   const precio = calcularCotizacion(servicio, cantidad, false)
-  const colores = servicio === 'cocina-modular' ? COLORES_COCINA : COLORES_VINIL
+  const colores = servicio === 'cocina-modular' ? COLORES_COCINA : servicio === 'vinil-spc' ? COLORES_SPC : COLORES_VINIL
   const colorInfo = colores.find(c => c.id === datos.color_seleccionado)
   const fechaHoy = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })
   const nroCotizacion = numeroApp ?? (cotizacionId ? cotizacionId.slice(0, 8).toUpperCase() : 'PENDIENTE')
 
-  // Extras LVT: acondicionamiento siempre + 1 perfil de terminación
+  // Extras LVT: acondicionamiento siempre + 1 perfil de terminación.
+  // En SPC el acondicionamiento NO se suma de entrada: solo aplica si el
+  // técnico lo recomienda en la visita (mismo precio que LVT, ver aviso en
+  // PasoEspecificaciones). El FOAM sí es automático en todo piso SPC.
   const costoAcond = esLVT ? COSTO_ACOND_M2 * cantidad : 0
   const costoPerfil = esLVT ? COSTO_PERFIL_TERMINACION : 0
+  const costoFoam = esSPC ? COSTO_FOAM_SPC * cantidad : 0
 
   // Rodapié PVC: usa ML ingresados por el cliente, o estima 90% del metraje
   const PRECIO_RODAPIE_ML = 9.6
@@ -254,7 +259,7 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
 
   // Usamos precio.max como precio estándar (precio completo, sin descuento mínimo)
   const costoBase = precio ? precio.max : 0
-  const total = precio ? costoBase + costoAcond + costoPerfil + costoRodapie + (flete ?? 0) : null
+  const total = precio ? costoBase + costoAcond + costoPerfil + costoFoam + costoRodapie + (flete ?? 0) : null
 
   const whatsappMsg = encodeURIComponent(
     `Hola, acabo de generar mi cotización #${nroCotizacion} en KersaDesign para ${info.nombre}${colorInfo ? ` (${colorInfo.nombre})` : ''} — ${cantidad} ${info.unidad}${total ? `. Total estimado: ${formatCurrency(total)}` : ''}. Me gustaría más información.`
@@ -280,6 +285,7 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
     })
     if (costoAcond > 0) lineas.push({ c: 'WEB-ACOND', n: 'Acondicionamiento de piso', u: 'm²', cant: cantidad, m2: cantidad, pUsd: COSTO_ACOND_M2, subUsd: +costoAcond.toFixed(2) })
     if (costoPerfil > 0) lineas.push({ c: 'WEB-PERFIL', n: 'Perfil de terminación', u: 'ud', cant: 1, m2: null, pUsd: costoPerfil, subUsd: costoPerfil })
+    if (costoFoam > 0) lineas.push({ c: 'WEB-FOAM', n: 'Foam (base niveladora, incluido en piso clic)', u: 'm²', cant: cantidad, m2: cantidad, pUsd: COSTO_FOAM_SPC, subUsd: +costoFoam.toFixed(2) })
     if (costoRodapie > 0) lineas.push({ c: 'WEB-RODAPIE', n: 'Rodapié PVC (instalación y carateo)', u: 'metro lineal', cant: mlRodapie, m2: null, pUsd: PRECIO_RODAPIE_ML, subUsd: +costoRodapie.toFixed(2) })
     // Mismo renglón que agrega la app: "Flete a <zona>", unidad servicio
     if (resultadoFlete.tipo === 'monto') lineas.push({ c: 'SRV-FLETE', n: `Flete a ${resultadoFlete.zona}`, u: 'servicio', cant: 1, m2: null, pUsd: resultadoFlete.monto, subUsd: resultadoFlete.monto })
@@ -449,6 +455,31 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
                 </tr>
               )}
 
+              {/* Fila: Foam — siempre en SPC (piso tipo clic) */}
+              {esSPC && (
+                <tr>
+                  <td className="py-2">
+                    <p className="font-medium text-gray-800">Foam (base niveladora)</p>
+                    <p className="text-xs text-gray-400">Incluido en toda instalación de piso SPC tipo clic</p>
+                  </td>
+                  <td className="py-2 text-right text-gray-700">{cantidad} m²</td>
+                  <td className="py-2 text-right text-gray-700">${COSTO_FOAM_SPC}/m²</td>
+                  <td className="py-2 text-right font-semibold text-gray-800">{formatCurrency(costoFoam)}</td>
+                </tr>
+              )}
+
+              {/* Fila: Acondicionamiento — informativo en SPC, no se suma al total */}
+              {esSPC && (
+                <tr>
+                  <td className="py-2" colSpan={4}>
+                    <p className="font-medium text-gray-800">Acondicionamiento de piso <span className="text-xs font-normal text-blue-600 bg-blue-50 rounded px-1.5 py-0.5 ml-1">Sujeto a visita técnica</span></p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      No incluido en este estimado. Solo aplica si el técnico lo recomienda en la visita — de ser así, se cobra el mismo precio que en Vinil LVT: ${COSTO_ACOND_M2}/m² (puede variar entre $3–$7/m²).
+                    </p>
+                  </td>
+                </tr>
+              )}
+
               {/* Fila 4: Rodapié PVC (solo si el cliente lo eligió) */}
               {incluyeRodapie && (
                 <tr>
@@ -490,7 +521,9 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-gray-700">TOTAL ESTIMADO</p>
-                <p className="text-xs text-gray-400 mt-0.5">Piso + Acondicionamiento + Perfil + Flete</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {esLVT ? 'Piso + Acondicionamiento + Perfil + Flete' : esSPC ? 'Piso + Foam + Flete' : 'Piso + Flete'}
+                </p>
                 {resultadoFlete.tipo === 'camion' && (
                   <p className="text-xs text-amber-600 mt-0.5">
                     * Flete no incluido — la carga (≈ {Math.round(resultadoFlete.kg)} kg) requiere camión; un asesor te lo confirma

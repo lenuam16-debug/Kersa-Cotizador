@@ -51,6 +51,7 @@ export const SERVICIOS = {
 }>
 
 export const COSTO_ACONDICIONAMIENTO = 3 // $/m² estimado base
+export const COSTO_FOAM_SPC = 3 // $/m² — foam base niveladora, siempre incluido en piso SPC (clic)
 
 export function calcularCotizacion(
   servicio: Servicio,
