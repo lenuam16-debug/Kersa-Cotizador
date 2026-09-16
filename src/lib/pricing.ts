@@ -9,6 +9,14 @@ export const SERVICIOS = {
     margen: 0.1,
     icono: '🪵',
   },
+  'vinil-lvt-3mm': {
+    nombre: 'Piso Vinil LVT 2.8-3mm',
+    descripcion: 'Vinil de lujo 2.8mm y 3mm, uso residencial premium y comercial, con instalación incluida desde $20/m²',
+    unidad: 'm²',
+    precioBase: 20,
+    margen: 0.1,
+    icono: '🪵',
+  },
   'vinil-spc': {
     nombre: 'Piso Vinil SPC',
     descripcion: 'Vinil SPC rígido sistema clic 5mm y 6mm con instalación incluida desde $26/m²',
@@ -93,6 +101,33 @@ export const COLORES_VINIL: { id: string; nombre: string; hex?: string; imagen?:
   { id: 'oregon',      nombre: 'Oregon',      imagen: 'https://kersadesign.com/imagenes/embed_087_2d17083d.jpg' },
   { id: 'pasadena',    nombre: 'Pasadena',    imagen: 'https://kersadesign.com/imagenes/embed_088_dc85ef9a.jpg' },
   { id: 'vermont',     nombre: 'Vermont',     imagen: 'https://kersadesign.com/imagenes/embed_089_653c8c30.jpg' },
+]
+
+// Piso Vinil LVT 2.8mm y 3mm — $20/m² instalado
+export const COLORES_LVT_3MM: { id: string; nombre: string; espesor: string; hex?: string; imagen?: string }[] = [
+  // 2.8mm
+  { id: 'amaro',       nombre: 'Amaro',       espesor: '2.8mm', imagen: 'https://kersadesign.com/imagenes/embed_053_e460acf2.jpg' },
+  { id: 'castellani',  nombre: 'Castellani',  espesor: '2.8mm', imagen: 'https://kersadesign.com/imagenes/embed_054_a089233a.jpg' },
+  { id: 'grappa',      nombre: 'Grappa',      espesor: '2.8mm', imagen: 'https://kersadesign.com/imagenes/embed_055_fc0ba249.jpg' },
+  { id: 'new-legend',  nombre: 'New Legend',  espesor: '2.8mm', imagen: 'https://kersadesign.com/imagenes/embed_056_77c788f3.jpg' },
+  { id: 'oak',         nombre: 'Oak',         espesor: '2.8mm', imagen: 'https://kersadesign.com/imagenes/embed_057_9ff627ab.jpg' },
+  { id: 'ragnar',      nombre: 'Ragnar',      espesor: '2.8mm', imagen: 'https://kersadesign.com/imagenes/embed_058_7d5f331e.jpg' },
+  // 3mm
+  { id: 'boston',      nombre: 'Boston',      espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_059_9dd044f6.jpg' },
+  { id: 'california',  nombre: 'California',  espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_060_f488a0a8.jpg' },
+  { id: 'dallara',     nombre: 'Dallara',     espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_061_199eee46.jpg' },
+  { id: 'eofor',       nombre: 'Eofor',       espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_062_dd8fa181.jpg' },
+  { id: 'hamlet',      nombre: 'Hamlet',      espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_063_d54c2582.jpg' },
+  { id: 'new-stone',   nombre: 'New Stone',   espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_064_7e25e3bb.jpg' },
+  { id: 'new-york',    nombre: 'New York',    espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_065_1b65a0a1.jpg' },
+  { id: 'nordic-grey', nombre: 'Nordic Grey', espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_066_c464affd.jpg' },
+  { id: 'overbrook',   nombre: 'Overbrook',   espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_067_f6a81e9d.jpg' },
+  { id: 'pure-stone',  nombre: 'Pure Stone',  espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_068_a33b2998.jpg' },
+  { id: 'rimini',      nombre: 'Rimini',      espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_069_b620acb0.jpg' },
+  { id: 'roller-park', nombre: 'Roller Park', espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_070_36284680.jpg' },
+  { id: 'stone-brown', nombre: 'Stone Brown', espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_071_121856e3.jpg' },
+  { id: 'stone-dark',  nombre: 'Stone Dark',  espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_072_bf78c24c.jpg' },
+  { id: 'stone-grey',  nombre: 'Stone Grey',  espesor: '3mm', imagen: 'https://kersadesign.com/imagenes/embed_073_0161abe6.jpg' },
 ]
 
 // Piso Vinil SPC — promo $26/m² instalado (5mm + 6mm, sin Decoroyal)

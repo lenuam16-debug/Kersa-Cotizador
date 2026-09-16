@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { PasoForm } from '@/types'
-import { SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_SPC, COLORES_COCINA, COSTO_FOAM_SPC } from '@/lib/pricing'
+import { SERVICIOS, calcularCotizacion, COLORES_VINIL, COLORES_LVT_3MM, COLORES_SPC, COLORES_COCINA, COSTO_FOAM_SPC } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
 import { CheckCircle, CalendarCheck, MessageCircle, Printer, Loader2, AlertCircle } from 'lucide-react'
 import { track } from '@/lib/track'
@@ -220,13 +220,18 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
     ? datos.metros_lineales ?? 0
     : datos.metros_cuadrados ?? 0
 
-  const esLVT = servicio === 'vinil-lvt'
+  // vinil-lvt-3mm copia exactamente la misma formula que vinil-lvt (acondicionamiento
+  // siempre, perfil, rodapie opcional, flete): solo cambian precio y colores.
+  const esLVT = servicio === 'vinil-lvt' || servicio === 'vinil-lvt-3mm'
   const esSPC = servicio === 'vinil-spc'
   const esVinil = esLVT || esSPC
 
   // Para LVT calculamos el precio base SIN acondicionamiento (lo mostramos separado)
   const precio = calcularCotizacion(servicio, cantidad, false)
-  const colores = servicio === 'cocina-modular' ? COLORES_COCINA : servicio === 'vinil-spc' ? COLORES_SPC : COLORES_VINIL
+  const colores = servicio === 'cocina-modular' ? COLORES_COCINA
+    : servicio === 'vinil-spc' ? COLORES_SPC
+    : servicio === 'vinil-lvt-3mm' ? COLORES_LVT_3MM
+    : COLORES_VINIL
   const colorInfo = colores.find(c => c.id === datos.color_seleccionado)
   const fechaHoy = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })
   const nroCotizacion = numeroApp ?? (cotizacionId ? cotizacionId.slice(0, 8).toUpperCase() : 'PENDIENTE')

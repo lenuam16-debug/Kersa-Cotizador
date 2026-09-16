@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 
 const IMAGENES: Record<string, string> = {
   'vinil-lvt': 'https://kersadesign.com/imagenes/embed_038_91a45af7.jpg',
+  'vinil-lvt-3mm': 'https://kersadesign.com/imagenes/embed_059_9dd044f6.jpg',
   'vinil-spc': '/materiales/spc-6mm/miel.jpg',
   'cocina-modular': 'https://kersadesign.com/imagenes/embed_078_4b2cca2f.jpg',
 }
@@ -14,11 +15,11 @@ const IMAGENES: Record<string, string> = {
 /**
  * Servicios que el cotizador web ofrece hoy.
  *
- * Solo LVT mientras se termina el resto del sistema. Los precios y textos de
+ * Solo vinil mientras se termina el resto del sistema. Los precios y textos de
  * los demás siguen en pricing.ts: para volver a ofrecer uno basta agregar su
- * clave aquí (ej: 'vinil-spc', 'cocina-modular').
+ * clave aquí (ej: 'cocina-modular').
  */
-const SERVICIOS_ACTIVOS: Servicio[] = ['vinil-lvt', 'vinil-spc']
+const SERVICIOS_ACTIVOS: Servicio[] = ['vinil-lvt', 'vinil-lvt-3mm', 'vinil-spc']
 
 interface Props {
   seleccionado?: Servicio

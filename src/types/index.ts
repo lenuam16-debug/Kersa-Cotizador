@@ -1,4 +1,4 @@
-export type Servicio = 'vinil-lvt' | 'vinil-spc' | 'laminas-pvc' | 'wallpanel' | 'cocina-modular'
+export type Servicio = 'vinil-lvt' | 'vinil-lvt-3mm' | 'vinil-spc' | 'laminas-pvc' | 'wallpanel' | 'cocina-modular'
 
 export type EstadoSeguimiento = 'nuevo' | 'contactado' | 'en-negociacion' | 'cerrado-ganado' | 'cerrado-perdido'
 

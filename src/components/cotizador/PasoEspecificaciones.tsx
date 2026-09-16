@@ -1,7 +1,7 @@
 'use client'
 
 import { Servicio, PasoForm, TipoPiso, PISOS_SIN_ACONDICIONAMIENTO } from '@/types'
-import { SERVICIOS, COLORES_VINIL, COLORES_SPC, COLORES_COCINA, COSTO_ACONDICIONAMIENTO } from '@/lib/pricing'
+import { SERVICIOS, COLORES_VINIL, COLORES_LVT_3MM, COLORES_SPC, COLORES_COCINA, COSTO_ACONDICIONAMIENTO } from '@/lib/pricing'
 import { CIUDADES, CIUDADES_MUNICIPIOS, minimoM2Vinil } from '@/lib/ubicaciones'
 import { ZONAS_FLETE } from '@/lib/flete'
 import { cn } from '@/lib/utils'
@@ -22,12 +22,15 @@ const TIPOS_PISO: { id: TipoPiso; label: string }[] = [
   { id: 'otro',         label: 'Otro' },
 ]
 
-const esVinil = (s: Servicio) => s === 'vinil-lvt' || s === 'vinil-spc'
+const esVinil = (s: Servicio) => s === 'vinil-lvt' || s === 'vinil-lvt-3mm' || s === 'vinil-spc'
 
 export default function PasoEspecificaciones({ servicio, datos, onChange }: Props) {
   const info = SERVICIOS[servicio]
-  const colores = servicio === 'cocina-modular' ? COLORES_COCINA : servicio === 'vinil-spc' ? COLORES_SPC : COLORES_VINIL
-  const mostrarColores = servicio === 'vinil-lvt' || servicio === 'vinil-spc' || servicio === 'cocina-modular'
+  const colores = servicio === 'cocina-modular' ? COLORES_COCINA
+    : servicio === 'vinil-spc' ? COLORES_SPC
+    : servicio === 'vinil-lvt-3mm' ? COLORES_LVT_3MM
+    : COLORES_VINIL
+  const mostrarColores = servicio === 'vinil-lvt' || servicio === 'vinil-lvt-3mm' || servicio === 'vinil-spc' || servicio === 'cocina-modular'
   const esMetrosCuadrados = servicio !== 'cocina-modular'
 
   const requiereAcondicionamiento =
