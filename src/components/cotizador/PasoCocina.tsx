@@ -2,13 +2,10 @@
 
 import { useState } from 'react'
 import { PasoForm } from '@/types'
-import {
-  ACABADOS_COCINA, TOPES_COCINA, LED_COCINA, ACCESORIOS_COCINA, COCINA_FLETE_TIERS, TOPE_INCLUYE,
-  calcularCotizacionCocina, entradaCocinaDesdeForm, mlEfectivosCocina,
-} from '@/lib/pricing'
-import { calcularFleteCocina, zonaCocinaDesdeMunicipio } from '@/lib/fleteCocina'
+import { ACABADOS_COCINA, TOPES_COCINA, LED_COCINA, ACCESORIOS_COCINA, TOPE_INCLUYE, mlEfectivosCocina } from '@/lib/pricing'
+import { zonaCocinaDesdeMunicipio } from '@/lib/fleteCocina'
 import { CIUDADES, CIUDADES_MUNICIPIOS } from '@/lib/ubicaciones'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 interface Props {
   datos: PasoForm
@@ -67,14 +64,9 @@ export default function PasoCocina({ datos, onChange }: Props) {
   const hayExtras = !!datos.salpicadero_incluido || !!datos.led_incluido || Object.values(accesorios).some(v => v > 0)
   const mostrarExtras = extrasAbiertos || hayExtras
 
-  // Precio aproximado en vivo: mismas funciones que usa el resultado final.
-  const calc = calcularCotizacionCocina(entradaCocinaDesdeForm(datos))
+  // El total NO se muestra en este paso: se revela en el resultado, después de
+  // que el cliente deja sus datos (igual que en piso vinil) para alimentar el CRM.
   const zona = zonaCocinaDesdeMunicipio(datos.municipio)
-  const flete = calcularFleteCocina(zona)
-  const faltan = camposFaltantesCocina(datos)
-  const montoFlete = flete.tipo === 'monto' ? flete.monto : 0
-  const total = calc ? calc.total + montoFlete : null
-  const sub = (grupo: 'mueble' | 'tope' | 'extra') => calc ? calc.items.filter(i => i.grupo === grupo).reduce((s, i) => s + i.subtotal, 0) : 0
 
   const cambiarAccesorio = (id: 'condimentero' | 'platera' | 'cubiertero', delta: number) => {
     const nuevo = Math.max(0, (accesorios[id] ?? 0) + delta)
@@ -85,7 +77,7 @@ export default function PasoCocina({ datos, onChange }: Props) {
     <div>
       <h2 className="text-2xl font-bold text-gray-800 mb-2">Tu cocina modular</h2>
       <p className="text-gray-500 mb-8">
-        Responde estas preguntas y verás tu precio aproximado aquí mismo. No necesitas medidas exactas: el técnico las confirma en la visita.
+        Arma tu cocina en pocos pasos y al final recibes tu cotización. No necesitas medidas exactas: el técnico las confirma en la visita.
       </p>
 
       <div className="space-y-6">
@@ -256,11 +248,9 @@ export default function PasoCocina({ datos, onChange }: Props) {
             </div>
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            {flete.tipo === 'monto'
-              ? `Traslado e instalación (flete y gastos operativos) en ${datos.municipio}: $${flete.monto}, ya incluido en el precio aproximado.`
-              : zona === 'otra'
-                ? 'Tu municipio no está en nuestro tabulador de flete: un asesor te lo confirma.'
-                : `Traslado e instalación (flete y gastos operativos): ${COCINA_FLETE_TIERS.map(t => `$${t.tarifa} en ${t.titulo}`).join(' · ')}.`}
+            {zona === 'otra'
+              ? 'Tu municipio no está en nuestro tabulador de flete: un asesor te lo confirma.'
+              : 'El flete es una tarifa fija según tu municipio y se incluye en tu cotización.'}
           </p>
         </div>
 
@@ -434,32 +424,6 @@ export default function PasoCocina({ datos, onChange }: Props) {
         </div>
       </div>
 
-      {/* Precio aproximado en vivo */}
-      <div className="sticky bottom-0 mt-6 -mx-2 px-4 py-3 rounded-2xl border-2 border-blue-100 bg-white/95 backdrop-blur shadow-lg">
-        {calc && total !== null ? (
-          <div className="flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tu precio aproximado</p>
-              <p className="text-xs text-gray-500 mt-0.5 truncate">
-                Muebles {formatCurrency(sub('mueble'))}
-                {sub('tope') > 0 && ` · Mesón ${formatCurrency(sub('tope'))}`}
-                {sub('extra') > 0 && ` · Extras ${formatCurrency(sub('extra'))}`}
-                {flete.tipo === 'monto' ? ` · Flete ${formatCurrency(flete.monto)}` : ' · Flete a confirmar'}
-              </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">Más IVA · referencial, se confirma en la visita técnica</p>
-              {faltan.length > 0 && (
-                <p className="text-xs text-amber-600 font-medium mt-1">Para continuar falta: {faltan[0]}</p>
-              )}
-            </div>
-            <p className="text-2xl sm:text-3xl font-black whitespace-nowrap" style={{ color: '#134a9c' }}>{formatCurrency(total)}</p>
-          </div>
-        ) : (
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tu precio aproximado</p>
-            <p className="text-sm text-gray-700 mt-0.5">Para ver tu precio falta: <span className="font-semibold">{faltan[0] ?? 'completar los datos'}</span></p>
-          </div>
-        )}
-      </div>
     </div>
   )
 }
