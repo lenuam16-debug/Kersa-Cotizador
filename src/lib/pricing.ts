@@ -43,7 +43,7 @@ export const SERVICIOS = {
   },
   'cocina-modular': {
     nombre: 'Cocina Modular',
-    descripcion: 'Diseño, fabricación e instalación a tu medida · mesón y extras se cotizan aparte · entrega en 30 días hábiles',
+    descripcion: 'Diseño, fabricación e instalación a tu medida · a partir de 3 ML · mesón y extras se cotizan aparte · entrega en 30 días hábiles',
     unidad: 'ML',
     precioBase: 400,
     margen: 0.15,
@@ -218,6 +218,9 @@ export const TOPES_COCINA: {
 ]
 
 export const TOPE_INCLUYE = 'Incluye piedra, fabricación e instalación'
+
+// Metraje mínimo de mueble para cotizar una cocina modular
+export const MINIMO_ML_COCINA = 3
 
 export const LED_COCINA: { id: ColorLed; nombre: string; precio: number; sku: string }[] = [
   { id: 'blanca',   nombre: 'Blanca',   precio: 50, sku: 'SRV-COCINA-LUZ-BLANCA' },

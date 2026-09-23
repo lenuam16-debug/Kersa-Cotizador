@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { PasoForm } from '@/types'
-import { ACABADOS_COCINA, TOPES_COCINA, LED_COCINA, ACCESORIOS_COCINA, TOPE_INCLUYE, mlEfectivosCocina } from '@/lib/pricing'
+import { ACABADOS_COCINA, TOPES_COCINA, LED_COCINA, ACCESORIOS_COCINA, TOPE_INCLUYE, MINIMO_ML_COCINA, mlEfectivosCocina } from '@/lib/pricing'
 import { zonaCocinaDesdeMunicipio } from '@/lib/fleteCocina'
 import { CIUDADES, CIUDADES_MUNICIPIOS } from '@/lib/ubicaciones'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,7 @@ export function camposFaltantesCocina(datos: PasoForm): string[] {
   const falta: string[] = []
   if (!datos.acabado_cocina) falta.push('elegir el acabado')
   if (!ml.mueble) falta.push('los metros de mueble')
+  else if (ml.mueble < MINIMO_ML_COCINA) falta.push(`mínimo ${MINIMO_ML_COCINA} ML de mueble`)
   if (datos.led_incluido && !ml.led) falta.push('los metros de luz LED')
   if (!datos.ciudad?.trim()) falta.push('tu estado')
   else if (!datos.municipio?.trim()) falta.push('tu municipio')
@@ -118,7 +119,7 @@ export default function PasoCocina({ datos, onChange }: Props) {
             <input
               type="number"
               inputMode="decimal"
-              min="1"
+              min={MINIMO_ML_COCINA}
               step="0.5"
               placeholder="Ej: 4.5"
               value={datos.metros_lineales ?? ''}
@@ -129,6 +130,12 @@ export default function PasoCocina({ datos, onChange }: Props) {
             />
             <span className="text-gray-500 font-medium">ML</span>
           </div>
+          <p className="text-xs text-gray-400 mt-1">Cotizamos cocinas a partir de {MINIMO_ML_COCINA} ML de mueble.</p>
+          {ml.mueble !== undefined && ml.mueble < MINIMO_ML_COCINA && (
+            <p className="text-sm text-red-600 font-medium mt-1">
+              ⚠ El mínimo para cotizar una cocina modular es de {MINIMO_ML_COCINA} ML. Aumenta los metros para continuar.
+            </p>
+          )}
           <div className="mt-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-800">
             📏 <strong>¿Cómo lo calculo?</strong> Suma el largo de cada pared donde irá mueble. Cada pared se cuenta una sola vez, aunque lleve muebles abajo y arriba: el precio por ML ya incluye ambos. Ejemplo: una pared de 3 m + otra de 2 m en forma de L = 5 ML. No hace falta restar la nevera ni las ventanas — el técnico ajusta la medida exacta en la visita.
           </div>
