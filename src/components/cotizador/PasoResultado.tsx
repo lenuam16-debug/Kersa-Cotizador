@@ -283,7 +283,7 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
   const whatsappMsg = encodeURIComponent(
     `Hola, acabo de generar mi cotización #${nroCotizacion} en KersaDesign para ${info.nombre}${colorInfo ? ` (${colorInfo.nombre})` : ''} — ${cantidad} ${info.unidad}${total ? `. Total estimado: ${formatCurrency(total)}` : ''}. Me gustaría más información.`
   )
-  const whatsappUrl = `https://wa.me/584142568220?text=${whatsappMsg}`
+  const whatsappUrl = `https://wa.me/584241393173?text=${whatsappMsg}`
   const pedidoVisita = `${info.nombre}${colorInfo ? ` ${colorInfo.nombre}` : ''} · ${cantidad} ${info.unidad} · Cotización #${nroCotizacion}`
 
   // Registrar la cotización en la app de vendedores (app.kersadesign.com) vía
@@ -402,7 +402,7 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
           <div className="text-right text-xs leading-relaxed text-gray-600">
             <p className="font-bold text-sm text-gray-800 mb-0.5">KersaDesign</p>
             <p>Caracas, Venezuela</p>
-            <p>Tel: +58 414-256-8220</p>
+            <p>Tel: +58 424-139-3173</p>
             <p>info@kersadesign.com</p>
             <p>kersadesign.com</p>
           </div>
