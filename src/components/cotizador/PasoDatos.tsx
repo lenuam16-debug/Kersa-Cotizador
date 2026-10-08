@@ -4,27 +4,13 @@ import { useRef, useState } from 'react'
 import { PasoForm } from '@/types'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
 import { track } from '@/lib/track'
 
-// Convierte 0414-1234567 → +584141234567 (E.164)
-function toE164(phone: string): string {
-  const p = phone.replace(/[\s\-()]/g, '')
-  if (p.startsWith('+')) return p
-  if (p.startsWith('58')) return '+' + p
-  if (p.startsWith('0')) return '+58' + p.slice(1)
-  return '+58' + p
-}
-
-// Respaldo por WhatsApp (otp-wa): solo celulares venezolanos, que son los que
-// el filtro antifraude de SMS de Google bloquea de forma intermitente
+// Verificación del teléfono por WhatsApp (función otp-wa → API oficial de
+// WhatsApp, número de la empresa). Es el único canal desde oct 2026: el SMS de
+// Firebase dejó de entregar (cuota / facturación) y se eliminó.
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://awscrogqprosivmtgkio.supabase.co'
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3c2Nyb2dxcHJvc2l2bXRna2lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMjQ1NDIsImV4cCI6MjA5NzkwMDU0Mn0.WcYei2z8UGNCTQaWKSTNeWEJByWKTNqHyyCrwcPPnTQ'
-
-function esCelularVE(phone: string): boolean {
-  return /^58(412|414|416|424|426)\d{7}$/.test(toE164(phone).slice(1))
-}
 
 interface Props {
   datos: PasoForm
@@ -51,15 +37,11 @@ export function validEmail(e: string) {
 
 // ── Componente ────────────────────────────────────────────────
 export default function PasoDatos({ datos, onChange }: Props) {
-  // OTP state
   const [otpEnviado, setOtpEnviado] = useState(false)
   const [codigoInput, setCodigoInput] = useState('')
   const [enviandoOtp, setEnviandoOtp] = useState(false)
   const [verificandoOtp, setVerificandoOtp] = useState(false)
   const [otpError, setOtpError] = useState<string | null>(null)
-  const [metodoOtp, setMetodoOtp] = useState<'sms' | 'wa'>('sms')
-  const confirmationRef = useRef<ConfirmationResult | null>(null)
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
   const waTokenRef = useRef<string | null>(null)
 
   // Touched para mostrar errores solo tras interacción
@@ -70,43 +52,8 @@ export default function PasoDatos({ datos, onChange }: Props) {
   const telefonoOk = validTelefono(datos.telefono ?? '')
   const emailOk = validEmail(datos.email ?? '')
 
-  const enviarOtp = async () => {
-    setEnviandoOtp(true)
-    setOtpError(null)
-    try {
-      if (!recaptchaRef.current) {
-        // grecaptcha registra el elemento por referencia interna: vaciarlo no
-        // basta, hay que reemplazar el nodo para evitar
-        // "reCAPTCHA has already been rendered in this element"
-        const container = document.getElementById('recaptcha-container')
-        if (container?.parentNode) {
-          const fresh = container.cloneNode(false) as HTMLElement
-          container.parentNode.replaceChild(fresh, container)
-        }
-        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' })
-      }
-      confirmationRef.current = await signInWithPhoneNumber(auth, toE164(datos.telefono ?? ''), recaptchaRef.current)
-      track('4_sms_enviado')
-      setMetodoOtp('sms')
-      setOtpEnviado(true)
-    } catch (e) {
-      recaptchaRef.current?.clear()
-      recaptchaRef.current = null
-      const code = (e as { code?: string })?.code ?? ''
-      const msg =
-        code === 'auth/too-many-requests' ? 'Demasiados intentos. Espera unos minutos e intenta de nuevo.' :
-        code === 'auth/invalid-phone-number' ? 'Número de teléfono inválido.' :
-        code === 'auth/quota-exceeded' ? 'Se alcanzó el límite diario de SMS. Intenta mañana.' :
-        'Error enviando el SMS. Intenta de nuevo.'
-      track('4x_error_sms', code || String(e))
-      setOtpError(msg)
-    } finally {
-      setEnviandoOtp(false)
-    }
-  }
-
   // Envía el código por WhatsApp desde el número de la empresa (otp-wa)
-  const enviarOtpWa = async () => {
+  const enviarOtp = async () => {
     setEnviandoOtp(true)
     setOtpError(null)
     try {
@@ -118,7 +65,6 @@ export default function PasoDatos({ datos, onChange }: Props) {
       const d = await res.json().catch(() => ({}))
       if (!res.ok || !d.ok) throw new Error(d.error || 'No se pudo enviar el WhatsApp. Intenta de nuevo.')
       waTokenRef.current = d.token
-      setMetodoOtp('wa')
       setOtpEnviado(true)
       setCodigoInput('')
       track('4_wa_enviado')
@@ -134,30 +80,19 @@ export default function PasoDatos({ datos, onChange }: Props) {
     setVerificandoOtp(true)
     setOtpError(null)
     try {
-      if (metodoOtp === 'wa') {
-        if (!waTokenRef.current) throw new Error('Solicita un código primero')
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/otp-wa`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
-          body: JSON.stringify({ accion: 'verificar', telefono: datos.telefono ?? '', codigo: codigoInput, token: waTokenRef.current }),
-        })
-        const d = await res.json().catch(() => ({}))
-        if (!res.ok || !d.ok) throw new Error(d.error || 'Error verificando el código.')
-      } else {
-        if (!confirmationRef.current) throw new Error('Solicita un código primero')
-        await confirmationRef.current.confirm(codigoInput)
-      }
-      track('5_telefono_verificado', metodoOtp)
-      onChange({ telefono_verificado: true, telefono_verificacion: metodoOtp })
+      if (!waTokenRef.current) throw new Error('Solicita un código primero')
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/otp-wa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+        body: JSON.stringify({ accion: 'verificar', telefono: datos.telefono ?? '', codigo: codigoInput, token: waTokenRef.current }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok || !d.ok) throw new Error(d.error || 'Error verificando el código.')
+      track('5_telefono_verificado', 'wa')
+      onChange({ telefono_verificado: true, telefono_verificacion: 'wa' })
     } catch (e) {
-      const code = (e as { code?: string })?.code ?? ''
-      const msg =
-        code === 'auth/invalid-verification-code' ? 'Código incorrecto. Intenta de nuevo.' :
-        code === 'auth/code-expired' ? 'El código expiró. Solicita uno nuevo.' :
-        metodoOtp === 'wa' && e instanceof Error ? e.message :
-        'Error verificando el código.'
-      track('5x_error_codigo', code || String(e))
-      setOtpError(msg)
+      track('5x_error_codigo', e instanceof Error ? e.message : String(e))
+      setOtpError(e instanceof Error ? e.message : 'Error verificando el código.')
     } finally {
       setVerificandoOtp(false)
     }
@@ -170,9 +105,8 @@ export default function PasoDatos({ datos, onChange }: Props) {
     onChange({ telefono_verificado: false, telefono_verificacion: undefined })
   }
 
-  // Si SMS y WhatsApp fallan (cuota de Firebase, sesión de WhatsApp caída...)
-  // el cliente puede seguir: perder el lead es peor que perder la verificación.
-  // La cotización queda marcada "sin verificar" para el vendedor.
+  // Si el WhatsApp no llega, el cliente puede seguir: perder el lead es peor
+  // que perder la verificación. La cotización queda marcada "sin verificar".
   const continuarSinCodigo = () => {
     track('5_sin_verificar', otpError ?? '')
     setOtpError(null)
@@ -245,48 +179,28 @@ export default function PasoDatos({ datos, onChange }: Props) {
             )}
             {!datos.telefono_verificado && (
               <p className="text-xs text-gray-400 mt-1">
-                🌍 ¿Estás fuera de Venezuela? Escribe tu número con el código de tu país, ej: +34 612 345 678 (España), +56 9 1234 5678 (Chile), +1 305 123 4567 (USA)
+                🌍 ¿Estás fuera de Venezuela? Escribe tu número de WhatsApp con el código de tu país, ej: +34 612 345 678 (España), +56 9 1234 5678 (Chile), +1 305 123 4567 (USA)
               </p>
             )}
 
-            {/* Botón verificar / OTP */}
+            {/* Botón verificar / código */}
             {!datos.telefono_verificado && telefonoOk && (
               <div className="mt-2">
                 {!otpEnviado ? (
-                  // Celulares venezolanos: WhatsApp primero (API oficial, llega
-                  // siempre); el SMS de Firebase falla por cuota/facturación.
-                  esCelularVE(datos.telefono ?? '') ? (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={enviarOtpWa}
-                        disabled={enviandoOtp}
-                        className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
-                        style={{ backgroundColor: '#25D366' }}
-                      >
-                        {enviandoOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                        {enviandoOtp ? 'Enviando...' : '📲 Verificar número por WhatsApp'}
-                      </button>
-                      <button type="button" onClick={enviarOtp} disabled={enviandoOtp} className="text-xs text-gray-400 underline">
-                        Prefiero un SMS
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={enviarOtp}
-                      disabled={enviandoOtp}
-                      className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
-                      style={{ backgroundColor: '#134a9c' }}
-                    >
-                      {enviandoOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                      {enviandoOtp ? 'Enviando...' : 'Verificar número por SMS'}
-                    </button>
-                  )
+                  <button
+                    type="button"
+                    onClick={enviarOtp}
+                    disabled={enviandoOtp}
+                    className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
+                    style={{ backgroundColor: '#25D366' }}
+                  >
+                    {enviandoOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    {enviandoOtp ? 'Enviando...' : '📲 Verificar número por WhatsApp'}
+                  </button>
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs text-gray-600 font-medium">
-                      Ingresa el código de 6 dígitos enviado por {metodoOtp === 'wa' ? 'WhatsApp' : 'SMS'} a tu teléfono
+                      Te enviamos un código de 6 dígitos por WhatsApp. Escríbelo aquí:
                     </p>
                     <div className="flex items-center gap-2">
                       <input
@@ -310,16 +224,9 @@ export default function PasoDatos({ datos, onChange }: Props) {
                         {verificandoOtp ? <Loader2 className="w-4 h-4 animate-spin inline" /> : 'Confirmar'}
                       </button>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => (metodoOtp === 'wa' ? enviarOtpWa() : enviarOtp())} className="text-xs text-gray-400 underline">
-                        Reenviar código
-                      </button>
-                      {metodoOtp === 'sms' && esCelularVE(datos.telefono ?? '') && (
-                        <button type="button" onClick={() => enviarOtpWa()} disabled={enviandoOtp} className="text-xs font-semibold underline" style={{ color: '#25D366' }}>
-                          ¿No te llegó? Recibirlo por WhatsApp
-                        </button>
-                      )}
-                    </div>
+                    <button type="button" onClick={enviarOtp} disabled={enviandoOtp} className="text-xs text-gray-400 underline">
+                      Reenviar código
+                    </button>
                   </div>
                 )}
               </div>
@@ -339,19 +246,6 @@ export default function PasoDatos({ datos, onChange }: Props) {
                 <p className="text-xs text-red-500 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" /> {otpError}
                 </p>
-                {/* Si el SMS falló y es un celular venezolano, ofrecer WhatsApp */}
-                {!otpEnviado && esCelularVE(datos.telefono ?? '') && (
-                  <button
-                    type="button"
-                    onClick={() => enviarOtpWa()}
-                    disabled={enviandoOtp}
-                    className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
-                    style={{ backgroundColor: '#25D366' }}
-                  >
-                    {enviandoOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    📲 Recibir el código por WhatsApp
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={continuarSinCodigo}
@@ -386,9 +280,6 @@ export default function PasoDatos({ datos, onChange }: Props) {
         <div className="bg-gray-50 rounded-xl p-4 text-xs text-gray-500">
           🔒 Tus datos están seguros. Solo los usamos para enviarte tu cotización y hacer seguimiento a tu proyecto. No compartimos tu información con terceros.
         </div>
-
-        {/* Contenedor del reCAPTCHA invisible de Firebase */}
-        <div id="recaptcha-container" />
       </div>
     </div>
   )
