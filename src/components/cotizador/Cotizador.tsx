@@ -195,10 +195,6 @@ export default function Cotizador() {
         ].filter(Boolean).join(' | ') || null
       }
 
-      if (datos.telefono_verificacion === 'omitida') {
-        detallesTexto = ['⚠ Teléfono sin verificar (SMS/WhatsApp fallaron)', detallesTexto].filter(Boolean).join(' | ')
-      }
-
       // 3. Insert cotización
       const cotRes = await fetch(`${supabaseUrl}/rest/v1/cotizaciones`, {
         method: 'POST',
