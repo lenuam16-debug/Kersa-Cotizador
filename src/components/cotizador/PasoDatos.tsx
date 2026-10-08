@@ -253,16 +253,36 @@ export default function PasoDatos({ datos, onChange }: Props) {
             {!datos.telefono_verificado && telefonoOk && (
               <div className="mt-2">
                 {!otpEnviado ? (
-                  <button
-                    type="button"
-                    onClick={enviarOtp}
-                    disabled={enviandoOtp}
-                    className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
-                    style={{ backgroundColor: '#134a9c' }}
-                  >
-                    {enviandoOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    {enviandoOtp ? 'Enviando...' : 'Verificar número por SMS'}
-                  </button>
+                  // Celulares venezolanos: WhatsApp primero (API oficial, llega
+                  // siempre); el SMS de Firebase falla por cuota/facturación.
+                  esCelularVE(datos.telefono ?? '') ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={enviarOtpWa}
+                        disabled={enviandoOtp}
+                        className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
+                        style={{ backgroundColor: '#25D366' }}
+                      >
+                        {enviandoOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        {enviandoOtp ? 'Enviando...' : '📲 Verificar número por WhatsApp'}
+                      </button>
+                      <button type="button" onClick={enviarOtp} disabled={enviandoOtp} className="text-xs text-gray-400 underline">
+                        Prefiero un SMS
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={enviarOtp}
+                      disabled={enviandoOtp}
+                      className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
+                      style={{ backgroundColor: '#134a9c' }}
+                    >
+                      {enviandoOtp ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      {enviandoOtp ? 'Enviando...' : 'Verificar número por SMS'}
+                    </button>
+                  )
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs text-gray-600 font-medium">
