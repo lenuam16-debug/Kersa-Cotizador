@@ -17,6 +17,54 @@ interface Props {
   onChange: (d: Partial<PasoForm>) => void
 }
 
+// Prefijos de país para el WhatsApp. Venezuela primero; el resto, los países
+// desde donde más escriben. El número se guarda completo (+<prefijo><número>).
+const PAISES: { codigo: string; nombre: string; bandera: string }[] = [
+  { codigo: '58',  nombre: 'Venezuela',       bandera: '🇻🇪' },
+  { codigo: '1',   nombre: 'EE.UU. / Canadá', bandera: '🇺🇸' },
+  { codigo: '34',  nombre: 'España',          bandera: '🇪🇸' },
+  { codigo: '57',  nombre: 'Colombia',        bandera: '🇨🇴' },
+  { codigo: '56',  nombre: 'Chile',           bandera: '🇨🇱' },
+  { codigo: '51',  nombre: 'Perú',            bandera: '🇵🇪' },
+  { codigo: '52',  nombre: 'México',          bandera: '🇲🇽' },
+  { codigo: '54',  nombre: 'Argentina',       bandera: '🇦🇷' },
+  { codigo: '55',  nombre: 'Brasil',          bandera: '🇧🇷' },
+  { codigo: '593', nombre: 'Ecuador',         bandera: '🇪🇨' },
+  { codigo: '507', nombre: 'Panamá',          bandera: '🇵🇦' },
+  { codigo: '503', nombre: 'El Salvador',     bandera: '🇸🇻' },
+  { codigo: '506', nombre: 'Costa Rica',      bandera: '🇨🇷' },
+  { codigo: '502', nombre: 'Guatemala',       bandera: '🇬🇹' },
+  { codigo: '504', nombre: 'Honduras',        bandera: '🇭🇳' },
+  { codigo: '505', nombre: 'Nicaragua',       bandera: '🇳🇮' },
+  { codigo: '591', nombre: 'Bolivia',         bandera: '🇧🇴' },
+  { codigo: '595', nombre: 'Paraguay',        bandera: '🇵🇾' },
+  { codigo: '598', nombre: 'Uruguay',         bandera: '🇺🇾' },
+  { codigo: '53',  nombre: 'Cuba',            bandera: '🇨🇺' },
+  { codigo: '39',  nombre: 'Italia',          bandera: '🇮🇹' },
+  { codigo: '351', nombre: 'Portugal',        bandera: '🇵🇹' },
+  { codigo: '33',  nombre: 'Francia',         bandera: '🇫🇷' },
+  { codigo: '49',  nombre: 'Alemania',        bandera: '🇩🇪' },
+  { codigo: '44',  nombre: 'Reino Unido',     bandera: '🇬🇧' },
+]
+
+// Separa un teléfono guardado ("+34612345678" / "0414-1234567") en prefijo + número local
+function separarTelefono(t: string): { prefijo: string; local: string } {
+  const s = (t ?? '').trim()
+  if (s.startsWith('+')) {
+    const d = s.slice(1)
+    const p = [...PAISES].sort((a, b) => b.codigo.length - a.codigo.length).find(x => d.startsWith(x.codigo))
+    if (p) return { prefijo: p.codigo, local: d.slice(p.codigo.length) }
+  }
+  return { prefijo: '58', local: s }
+}
+
+function componerTelefono(prefijo: string, local: string): string {
+  const l = local.trim()
+  if (!l) return ''
+  if (prefijo === '58') return l                       // 0414-1234567 tal cual (ya lo entiende todo el flujo)
+  return '+' + prefijo + l.replace(/\D/g, '').replace(/^0+/, '')
+}
+
 // ── Validaciones ──────────────────────────────────────────────
 export function validNombre(n: string) {
   const trimmed = n.trim()
@@ -43,6 +91,18 @@ export default function PasoDatos({ datos, onChange }: Props) {
   const [verificandoOtp, setVerificandoOtp] = useState(false)
   const [otpError, setOtpError] = useState<string | null>(null)
   const waTokenRef = useRef<string | null>(null)
+  const inicial = separarTelefono(datos.telefono ?? '')
+  const [prefijo, setPrefijo] = useState(inicial.prefijo)
+  const [numeroLocal, setNumeroLocal] = useState(inicial.local)
+
+  const cambiarTelefono = (nuevoPrefijo: string, nuevoLocal: string) => {
+    setPrefijo(nuevoPrefijo)
+    setNumeroLocal(nuevoLocal)
+    onChange({ telefono: componerTelefono(nuevoPrefijo, nuevoLocal), telefono_verificado: false, telefono_verificacion: undefined })
+    setOtpEnviado(false)
+    setCodigoInput('')
+    setOtpError(null)
+  }
 
   // Touched para mostrar errores solo tras interacción
   const [touched, setTouched] = useState<Record<string, boolean>>({})
@@ -141,37 +201,47 @@ export default function PasoDatos({ datos, onChange }: Props) {
 
           {/* Teléfono */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Teléfono / WhatsApp *</label>
-            <div className="relative">
-              <input
-                type="tel"
-                placeholder="0414-0000000"
-                value={datos.telefono ?? ''}
-                onChange={(e) => {
-                  onChange({ telefono: e.target.value, telefono_verificado: false, telefono_verificacion: undefined })
-                  setOtpEnviado(false)
-                  setCodigoInput('')
-                  setOtpError(null)
-                }}
-                onBlur={() => touch('telefono')}
+            <label className="block text-sm font-semibold text-gray-700 mb-1">WhatsApp *</label>
+            <div className="flex gap-2">
+              <select
+                value={prefijo}
+                onChange={(e) => cambiarTelefono(e.target.value, numeroLocal)}
                 disabled={datos.telefono_verificado}
-                className={cn(
-                  'w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors',
-                  datos.telefono_verificado ? 'border-green-400 bg-green-50 pr-10' : fieldBorder(telefonoOk, !!touched.telefono)
+                aria-label="Código de país"
+                className="w-28 flex-shrink-0 px-2 py-3 border-2 border-gray-200 rounded-xl bg-white focus:outline-none disabled:bg-green-50 disabled:border-green-400 text-sm"
+              >
+                {PAISES.map(p => (
+                  <option key={p.codigo} value={p.codigo}>{p.bandera} +{p.codigo}</option>
+                ))}
+              </select>
+              <div className="relative flex-1 min-w-0">
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  placeholder={prefijo === '58' ? '0414-0000000' : 'Tu número sin el código'}
+                  value={numeroLocal}
+                  onChange={(e) => cambiarTelefono(prefijo, e.target.value)}
+                  onBlur={() => touch('telefono')}
+                  disabled={datos.telefono_verificado}
+                  className={cn(
+                    'w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors',
+                    datos.telefono_verificado ? 'border-green-400 bg-green-50 pr-10' : fieldBorder(telefonoOk, !!touched.telefono)
+                  )}
+                />
+                {datos.telefono_verificado && (
+                  <CheckCircle className="absolute right-3 top-3.5 w-5 h-5 text-green-500" />
                 )}
-              />
-              {datos.telefono_verificado && (
-                <CheckCircle className="absolute right-3 top-3.5 w-5 h-5 text-green-500" />
-              )}
+              </div>
             </div>
             {touched.telefono && !telefonoOk && !datos.telefono_verificado && (
               <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" /> Formato válido: 0414-1234567 (0412, 0414, 0416, 0424, 0426)
+                <AlertCircle className="w-3 h-3" />
+                {prefijo === '58' ? 'Formato válido: 0414-1234567 (0412, 0414, 0416, 0424, 0426)' : 'Escribe tu número completo sin el código de país (solo dígitos)'}
               </p>
             )}
             {!datos.telefono_verificado && (
               <p className="text-xs text-gray-400 mt-1">
-                🌍 ¿Estás fuera de Venezuela? Escribe tu número de WhatsApp con el código de tu país, ej: +34 612 345 678 (España), +56 9 1234 5678 (Chile), +1 305 123 4567 (USA)
+                🌍 Fuera de Venezuela: elige tu país en la lista y escribe tu número sin el código. {prefijo !== '58' && datos.telefono ? <>Se enviará a <strong>{datos.telefono}</strong>.</> : null}
               </p>
             )}
 
