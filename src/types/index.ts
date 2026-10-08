@@ -81,6 +81,7 @@ export interface PasoForm {
   incluir_rodapie?: boolean
   ml_rodapie?: number
   telefono_verificado?: boolean
+  telefono_verificacion?: 'sms' | 'wa' | 'omitida'   // 'omitida' = siguió sin código porque SMS y WhatsApp fallaron
   // Cocina modular
   acabado_cocina?: AcabadoCocina
   tope_incluido?: boolean   // default true (undefined = incluido)

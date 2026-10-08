@@ -148,7 +148,7 @@ export default function PasoDatos({ datos, onChange }: Props) {
         await confirmationRef.current.confirm(codigoInput)
       }
       track('5_telefono_verificado', metodoOtp)
-      onChange({ telefono_verificado: true })
+      onChange({ telefono_verificado: true, telefono_verificacion: metodoOtp })
     } catch (e) {
       const code = (e as { code?: string })?.code ?? ''
       const msg =
@@ -167,7 +167,16 @@ export default function PasoDatos({ datos, onChange }: Props) {
     setOtpEnviado(false)
     setCodigoInput('')
     setOtpError(null)
-    onChange({ telefono_verificado: false })
+    onChange({ telefono_verificado: false, telefono_verificacion: undefined })
+  }
+
+  // Si SMS y WhatsApp fallan (cuota de Firebase, sesión de WhatsApp caída...)
+  // el cliente puede seguir: perder el lead es peor que perder la verificación.
+  // La cotización queda marcada "sin verificar" para el vendedor.
+  const continuarSinCodigo = () => {
+    track('5_sin_verificar', otpError ?? '')
+    setOtpError(null)
+    onChange({ telefono_verificado: true, telefono_verificacion: 'omitida' })
   }
 
   const fieldBorder = (valid: boolean, isTouched: boolean) => {
@@ -213,7 +222,7 @@ export default function PasoDatos({ datos, onChange }: Props) {
                 placeholder="0414-0000000"
                 value={datos.telefono ?? ''}
                 onChange={(e) => {
-                  onChange({ telefono: e.target.value, telefono_verificado: false })
+                  onChange({ telefono: e.target.value, telefono_verificado: false, telefono_verificacion: undefined })
                   setOtpEnviado(false)
                   setCodigoInput('')
                   setOtpError(null)
@@ -295,9 +304,14 @@ export default function PasoDatos({ datos, onChange }: Props) {
                 )}
               </div>
             )}
-            {datos.telefono_verificado && (
+            {datos.telefono_verificado && datos.telefono_verificacion !== 'omitida' && (
               <p className="text-xs text-green-600 font-semibold mt-1 flex items-center gap-1">
                 <CheckCircle className="w-3 h-3" /> Número verificado
+              </p>
+            )}
+            {datos.telefono_verificado && datos.telefono_verificacion === 'omitida' && (
+              <p className="text-xs text-amber-600 font-medium mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Continuarás sin verificar el número. Un asesor te contactará por WhatsApp.
               </p>
             )}
             {otpError && (
@@ -318,6 +332,14 @@ export default function PasoDatos({ datos, onChange }: Props) {
                     📲 Recibir el código por WhatsApp
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={continuarSinCodigo}
+                  className="block text-sm font-semibold underline"
+                  style={{ color: '#134a9c' }}
+                >
+                  ¿No puedes recibir el código? Continuar sin verificar →
+                </button>
               </div>
             )}
           </div>
