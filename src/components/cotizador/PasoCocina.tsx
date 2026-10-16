@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { PasoForm } from '@/types'
 import { ACABADOS_COCINA, TOPES_COCINA, LED_COCINA, ACCESORIOS_COCINA, TOPE_INCLUYE, MINIMO_ML_COCINA, mlEfectivosCocina } from '@/lib/pricing'
 import { zonaCocinaDesdeMunicipio } from '@/lib/fleteCocina'
-import { CIUDADES, CIUDADES_MUNICIPIOS } from '@/lib/ubicaciones'
+import { CIUDADES, CIUDADES_MUNICIPIOS, COBERTURA_TEXTO } from '@/lib/ubicaciones'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -257,7 +257,8 @@ export default function PasoCocina({ datos, onChange }: Props) {
               </select>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-gray-400 mt-2">📍 {COBERTURA_TEXTO}</p>
+          <p className="text-xs text-gray-400 mt-1">
             {zona === 'otra'
               ? 'Tu municipio no está en nuestro tabulador de flete: un asesor te lo confirma.'
               : 'El flete es una tarifa fija según tu municipio y se incluye en tu cotización.'}

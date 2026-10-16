@@ -2,7 +2,7 @@
 
 import { Servicio, PasoForm, TipoPiso, PISOS_SIN_ACONDICIONAMIENTO } from '@/types'
 import { SERVICIOS, COLORES_VINIL, COLORES_LVT_3MM, COLORES_SPC, COSTO_ACONDICIONAMIENTO } from '@/lib/pricing'
-import { CIUDADES, CIUDADES_MUNICIPIOS, minimoM2Vinil } from '@/lib/ubicaciones'
+import { CIUDADES, CIUDADES_MUNICIPIOS, COBERTURA_TEXTO, minimoM2Vinil } from '@/lib/ubicaciones'
 import { ZONAS_FLETE } from '@/lib/flete'
 import { cn } from '@/lib/utils'
 
@@ -79,6 +79,7 @@ export default function PasoEspecificaciones({ servicio, datos, onChange }: Prop
             </select>
           </div>
         </div>
+        <p className="-mt-3 text-xs text-gray-400">📍 {COBERTURA_TEXTO}</p>
 
         {/* Zona de entrega: define el flete con el mismo tabulador de la app */}
         <div>
