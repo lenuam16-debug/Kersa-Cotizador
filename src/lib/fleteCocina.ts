@@ -16,8 +16,8 @@ const MUNICIPIO_A_ZONA: Record<string, string> = {
   'El Hatillo': 'El Hatillo',
   'Guaicaipuro (Los Teques)': 'Los Teques',
 }
-// Los sectores de La Guaira (Catia La Mar … Tanaguarenas) van todos al tabulador de La Guaira
-const SECTORES_LA_GUAIRA = ['Catia La Mar', 'Maiquetía', 'La Guaira', 'Macuto', 'Caraballeda', 'Tanaguarenas']
+// Los sectores de La Guaira (Catia La Mar … Naiguatá) van todos al tabulador de La Guaira
+const SECTORES_LA_GUAIRA = ['Catia La Mar', 'Maiquetía', 'La Guaira', 'Macuto', 'Caraballeda', 'Tanaguarenas', 'Naiguatá']
 
 export function zonaCocinaDesdeMunicipio(municipio?: string): string | undefined {
   if (!municipio) return undefined
