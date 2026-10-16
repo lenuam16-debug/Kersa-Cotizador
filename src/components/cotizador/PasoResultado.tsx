@@ -46,9 +46,10 @@ const COSTO_ACOND_M2 = 3             // $ base por m²
  * y la app de Kersa). Sustituye el enlace de Google Calendar que los
  * vendedores no miraban: lo agendado aquí les aparece de una vez en el CRM.
  */
-function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: string; leadId?: string }) {
+function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedido: string; leadId?: string; abrir: number }) {
   const [estado, setEstado] = useState<'idle' | 'cargando' | 'elegir' | 'enviando' | 'exito'>('idle')
   const [dias, setDias] = useState<DiaDisponible[]>([])
+  const [proximo, setProximo] = useState<string | null>(null)
   const [fecha, setFecha] = useState<string>('')
   const [hora, setHora] = useState<number | null>(null)
   const [direccion, setDireccion] = useState('')
@@ -80,6 +81,28 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
       setEstado('idle')
     }
   }
+
+  // Al ver la cotización se consulta en silencio el próximo cupo real, para
+  // mostrarle al cliente que puede tener la visita pronto.
+  useEffect(() => {
+    fetch(`${SUPABASE_URL}/functions/v1/agenda-cotizador`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ accion: 'disponibilidad', zona: [datos.ciudad, datos.municipio].filter(Boolean).join(' ') }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        const p = d?.ok && d.dias?.[0]
+        if (p && p.libres?.length) setProximo(`${p.dia} a las ${horaTxt(p.libres[0])}`)
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // El llamado de arriba de la página abre la agenda directamente
+  useEffect(() => {
+    if (abrir > 0 && estado === 'idle') cargarDisponibilidad()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abrir])
 
   // Si el cliente deja la pestaña abierta, los cupos envejecen: al volver se
   // vuelven a pedir para no ofrecerle una hora que ya tomó otro.
@@ -156,15 +179,28 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
 
   if (estado === 'idle' || estado === 'cargando') {
     return (
-      <div>
+      <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-5">
+        <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1">Siguiente paso</p>
+        <p className="text-lg font-bold text-gray-800">Agenda tu visita técnica <span className="text-green-600">gratis</span></p>
+        <ul className="mt-2 mb-4 space-y-1 text-sm text-gray-700">
+          <li>📏 Un técnico mide tu espacio con exactitud</li>
+          <li>💲 Te confirmamos el precio final de tu proyecto</li>
+          <li>🎨 Te asesoramos con colores y materiales en persona</li>
+          <li>✅ Sin costo y sin compromiso</li>
+        </ul>
         <button
-          onClick={cargarDisponibilidad}
+          onClick={() => { track('7a_clic_agendar', 'tarjeta'); cargarDisponibilidad() }}
           disabled={estado === 'cargando'}
           className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-4 rounded-2xl transition-colors shadow-sm disabled:opacity-60"
         >
           {estado === 'cargando' ? <Loader2 className="w-6 h-6 animate-spin" /> : <CalendarCheck className="w-6 h-6" />}
-          {estado === 'cargando' ? 'Buscando cupos...' : 'Agendar visita técnica'}
+          {estado === 'cargando' ? 'Buscando cupos...' : 'Escoger día y hora de mi visita'}
         </button>
+        {proximo && (
+          <p className="text-xs text-blue-700 text-center mt-2">
+            Próximo cupo disponible: <span className="font-semibold">{proximo}</span>
+          </p>
+        )}
         {error && (
           <p className="text-xs text-red-500 mt-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {error}</p>
         )}
@@ -240,6 +276,7 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
 export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
   // Número unificado COT-AAAAMMDD-NNN que asigna la app de vendedores
   const [numeroApp, setNumeroApp] = useState<string | null>(null)
+  const [abrirAgenda, setAbrirAgenda] = useState(0)
   const enviadaAppRef = useRef<string | null>(null)
 
   const servicio = datos.servicio!
@@ -411,6 +448,18 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
         <p className="text-gray-500">
           Te enviamos los detalles a <span className="font-medium text-gray-700">{datos.email}</span>
         </p>
+        <button
+          onClick={() => {
+            track('7a_clic_agendar', 'arriba')
+            setAbrirAgenda(n => n + 1)
+            document.getElementById('agendar-visita')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }}
+          className="mt-4 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-3 rounded-xl transition-colors shadow-sm"
+        >
+          <CalendarCheck className="w-5 h-5" />
+          Agenda tu visita técnica gratis
+        </button>
+        <p className="text-xs text-gray-400 mt-2">El precio de abajo es referencial: en la visita medimos y te confirmamos el precio final.</p>
       </div>
 
       {/* ===== DOCUMENTO DE COTIZACIÓN IMPRIMIBLE ===== */}
@@ -655,17 +704,17 @@ export default function PasoResultado({ datos, cotizacionId, leadId }: Props) {
         </div>
       </div>
 
-      {/* CTAs: Agendar visita (agenda propia) + WhatsApp */}
-      <div className="space-y-4 no-print">
-        <AgendarVisita datos={datos} pedido={pedidoVisita} leadId={leadId} />
+      {/* CTAs: Agendar visita (principal) + WhatsApp (secundario) */}
+      <div id="agendar-visita" className="space-y-4 no-print scroll-mt-4">
+        <AgendarVisita datos={datos} pedido={pedidoVisita} leadId={leadId} abrir={abrirAgenda} />
         <a
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-3 bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-4 rounded-2xl transition-colors shadow-sm"
+          className="flex items-center justify-center gap-2 border-2 border-green-500 text-green-700 hover:bg-green-50 font-semibold px-6 py-3 rounded-2xl transition-colors"
         >
-          <MessageCircle className="w-6 h-6" />
-          Contactar asesor por WhatsApp
+          <MessageCircle className="w-5 h-5" />
+          ¿Tienes dudas? Escríbele a un asesor por WhatsApp
         </a>
       </div>
     </div>
