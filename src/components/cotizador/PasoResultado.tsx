@@ -91,10 +91,22 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado])
 
+  // La dirección es obligatoria: el CRM la exige completa (exigir_direccion)
+  const direccionOk = direccion.trim().length >= 15
+
   const agendar = async () => {
     if (!fecha || hora === null) return
+    if (!direccionOk) {
+      setError('Escribe tu dirección completa: urbanización, calle, edificio o casa, piso/apto y un punto de referencia.')
+      return
+    }
     setEstado('enviando')
     setError(null)
+    const esCocina = datos.servicio === 'cocina-modular'
+    // Zona elegida en el cotizador + municipio y estado: el CRM la usa para los
+    // traslados y para sus reglas (mínimos por zona, Valles del Tuy, otros estados)
+    const zonaElegida = datos.zona_entrega && datos.zona_entrega !== 'otra' ? datos.zona_entrega : ''
+    const zona = [zonaElegida, [datos.municipio, datos.ciudad].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/agenda-cotizador`, {
         method: 'POST', headers,
@@ -102,9 +114,11 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
           accion: 'agendar',
           nombre: datos.nombre ?? '',
           telefono: datos.telefono ?? '',
-          direccion: [direccion.trim(), datos.ciudad].filter(Boolean).join(' — ') || null,
+          direccion: [direccion.trim(), [datos.municipio, datos.ciudad].filter(Boolean).join(', ')].filter(Boolean).join(' — '),
+          exigir_direccion: true,
           pedido, fecha, hora,
-          zona: [datos.ciudad, datos.municipio].filter(Boolean).join(' '),
+          zona,
+          ...(esCocina ? { ml: datos.metros_lineales ?? null } : { m2: datos.metros_cuadrados ?? null }),
           lead_id: leadId ?? null,
         }),
       })
@@ -189,13 +203,23 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
         ))}
       </div>
 
-      <input
-        type="text"
-        value={direccion}
-        onChange={e => setDireccion(e.target.value)}
-        placeholder="Dirección o punto de referencia (opcional)"
-        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400"
-      />
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Dirección completa de la visita *</label>
+        <textarea
+          rows={2}
+          value={direccion}
+          onChange={e => setDireccion(e.target.value)}
+          placeholder="Urbanización, calle, edificio o casa, piso/apto y un punto de referencia"
+          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:outline-none focus:border-blue-400 resize-none"
+        />
+        {direccion.trim().length > 0 && !direccionOk ? (
+          <p className="text-xs text-amber-600 mt-1">Completa la dirección (urbanización, calle, edificio o casa, piso/apto y referencia) para poder confirmar.</p>
+        ) : (
+          <p className="text-xs text-gray-400 mt-1">
+            Ej: Urb. El Rosal, Av. Venezuela, Edif. Torre Lido, piso 4, apto 4-B, frente a la plaza.
+          </p>
+        )}
+      </div>
 
       {error && (
         <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {error}</p>
@@ -203,7 +227,7 @@ function AgendarVisita({ datos, pedido, leadId }: { datos: PasoForm; pedido: str
 
       <button
         onClick={agendar}
-        disabled={hora === null || estado === 'enviando'}
+        disabled={hora === null || !direccionOk || estado === 'enviando'}
         className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl transition-colors disabled:opacity-50"
       >
         {estado === 'enviando' ? <Loader2 className="w-5 h-5 animate-spin" /> : null}

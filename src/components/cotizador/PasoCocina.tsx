@@ -80,6 +80,9 @@ export default function PasoCocina({ datos, onChange }: Props) {
       <p className="text-gray-500 mb-8">
         Arma tu cocina en pocos pasos y al final recibes tu cotización. No necesitas medidas exactas: el técnico las confirma en la visita.
       </p>
+      <div className="-mt-5 mb-8 bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm text-gray-600">
+        🍳 Hacemos <strong>cocinas completas desde cero</strong>: las diseñamos, fabricamos e instalamos a tu medida (muebles bajos, aéreos y tope). No fabricamos solo puertas ni trabajamos sobre muebles o bases existentes.
+      </div>
 
       <div className="space-y-6">
         {/* Acabado */}
