@@ -27,7 +27,20 @@ export default function Cotizador() {
   const actualizar = (d: Partial<PasoForm>) => setDatos(prev => ({ ...prev, ...d }))
 
   // Embudo: registrar llegada y cada cambio de paso
-  useEffect(() => { track('1_llego_al_cotizador') }, [])
+  // Origen de la visita: sitio de donde llega, campaña (UTM) y dispositivo
+  useEffect(() => {
+    let origen = ''
+    try {
+      const p = new URLSearchParams(window.location.search)
+      const ref = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, '') : 'directo'
+      const utm = ['utm_source', 'utm_medium', 'utm_campaign'].map(k => p.get(k) || '').join('/')
+      const fb = p.get('fbclid') ? ' fbclid' : ''
+      const gc = p.get('gclid') ? ' gclid' : ''
+      const disp = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'movil' : 'compu'
+      origen = `ref=${ref}${utm !== '//' ? ` utm=${utm}` : ''}${fb}${gc} disp=${disp}`
+    } catch { /* nunca romper el cotizador por el tracking */ }
+    track('1_llego_al_cotizador', origen || undefined)
+  }, [])
   useEffect(() => {
     if (paso === 1) track('2_eligio_servicio', datos.servicio)
     if (paso === 2) track('3_completo_especificaciones', `${datos.metros_cuadrados ?? datos.metros_lineales} - ${datos.color_seleccionado ?? datos.acabado_cocina}`)

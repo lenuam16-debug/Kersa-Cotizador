@@ -30,6 +30,18 @@ function horaTxt(h: number): string {
 
 interface DiaDisponible { fecha: string; dia: string; libres: number[] }
 
+// "4141234567" / "0414-1234567" / "+58 414..." → "584141234567"; internacional
+// con + → solo dígitos. La agenda del CRM rechaza números de menos de 11 dígitos.
+function telefonoCompleto(t: string): string {
+  const raw = t.trim()
+  const d = raw.replace(/\D/g, '')
+  if (raw.startsWith('+')) return d
+  if (d.startsWith('58') && d.length === 12) return d
+  if (d.startsWith('0') && d.length === 11) return '58' + d.slice(1)
+  if (d.length === 10) return '58' + d
+  return d
+}
+
 // Mismo mapa que UNIDAD_CORTA del cotizador de la app, para que las líneas de
 // la cotización se escriban igual ("40 m² x $20,00/m²")
 const UNIDAD_CORTA: Record<string, string> = {
@@ -136,7 +148,7 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
         body: JSON.stringify({
           accion: 'agendar',
           nombre: datos.nombre ?? '',
-          telefono: datos.telefono ?? '',
+          telefono: telefonoCompleto(datos.telefono ?? ''),
           direccion: [direccion.trim(), [datos.municipio, datos.ciudad].filter(Boolean).join(', ')].filter(Boolean).join(' — '),
           exigir_direccion: true,
           pedido, fecha, hora,
