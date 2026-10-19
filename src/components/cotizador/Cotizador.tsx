@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PasoForm, Servicio } from '@/types'
 import BarraProgreso from './BarraProgreso'
 import PasoServicio from './PasoServicio'
@@ -15,10 +15,45 @@ import { track } from '@/lib/track'
 import { minimoM2Vinil } from '@/lib/ubicaciones'
 
 const TOTAL_PASOS = 4
+const WHATSAPP_KERSA = '584241393173'
+const NOMBRE_SERVICIO: Record<string, string> = {
+  'vinil-lvt': 'piso vinil LVT', 'vinil-lvt-3mm': 'piso vinil LVT 2.8-3 mm',
+  'vinil-spc': 'piso vinil SPC', 'cocina-modular': 'cocina modular',
+}
+
+// Lo que le falta al cliente para pasar de la pantalla de medidas. Se usa en
+// el aviso en pantalla y en el registro de por qué se fue.
+function faltantesMedidas(datos: PasoForm): string[] {
+  if (datos.servicio === 'cocina-modular') return camposFaltantesCocina(datos)
+  const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-lvt-3mm' || datos.servicio === 'vinil-spc'
+  const cantidad = datos.metros_cuadrados
+  const falta: string[] = []
+  if (!datos.ciudad?.trim()) falta.push('estado')
+  if (datos.ciudad?.trim() && !datos.municipio?.trim()) falta.push('municipio')
+  if (!datos.zona_entrega) falta.push('zona de entrega')
+  if (!cantidad || cantidad <= 0) falta.push('área aproximada en m²')
+  else if (esVinil && datos.municipio && cantidad < minimoM2Vinil(datos.municipio)) falta.push(`mínimo ${minimoM2Vinil(datos.municipio)} m² para ${datos.municipio}`)
+  if (esVinil && !datos.tipo_piso_actual) falta.push('tipo de piso actual')
+  if (esVinil && !datos.color_seleccionado) falta.push('modelo / color')
+  return falta
+}
+
+function faltantesDatos(datos: PasoForm): string[] {
+  const falta: string[] = []
+  if (!validNombre(datos.nombre ?? '')) falta.push('nombre completo (nombre y apellido)')
+  if (!validTelefono(datos.telefono ?? '')) falta.push('teléfono válido (0412/0414/... o +código de país)')
+  else if (!datos.telefono_verificado) falta.push('verificar el número por WhatsApp')
+  if (!validEmail(datos.email ?? '')) falta.push('correo electrónico válido')
+  return falta
+}
 
 export default function Cotizador() {
   const [paso, setPaso] = useState(0)
   const [datos, setDatos] = useState<PasoForm>({})
+  const pasoRef = useRef(paso)
+  const datosRef = useRef(datos)
+  pasoRef.current = paso
+  datosRef.current = datos
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cotizacionId, setCotizacionId] = useState<string | undefined>()
@@ -41,6 +76,26 @@ export default function Cotizador() {
     } catch { /* nunca romper el cotizador por el tracking */ }
     track('1_llego_al_cotizador', origen || undefined)
   }, [])
+  // Por qué se va: si cierra o cambia de app en medidas o en sus datos, se
+  // registra qué le faltaba (ej. "mínimo 30 m² para Baruta"). Solo si cambió
+  // desde el último registro, para no repetir cada vez que sale y vuelve.
+  useEffect(() => {
+    let ultimo = ''
+    const alSalir = () => {
+      if (document.visibilityState !== 'hidden') return
+      const p = pasoRef.current, d = datosRef.current
+      if (p !== 1 && p !== 2) return
+      const falta = p === 1 ? faltantesMedidas(d) : faltantesDatos(d)
+      const cant = d.servicio === 'cocina-modular' ? `${d.metros_lineales ?? '-'} ML` : `${d.metros_cuadrados ?? '-'} m2`
+      const detalle = `${d.servicio ?? '?'} | falta: ${falta.join(', ') || 'nada'} | ${cant} | ${d.municipio ?? 'sin municipio'}`
+      if (detalle === ultimo) return
+      ultimo = detalle
+      track(p === 1 ? '3x_abandono_medidas' : '4x_abandono_datos', detalle)
+    }
+    document.addEventListener('visibilitychange', alSalir)
+    return () => document.removeEventListener('visibilitychange', alSalir)
+  }, [])
+
   useEffect(() => {
     if (paso === 1) track('2_eligio_servicio', datos.servicio)
     if (paso === 2) track('3_completo_especificaciones', `${datos.metros_cuadrados ?? datos.metros_lineales} - ${datos.color_seleccionado ?? datos.acabado_cocina}`)
@@ -316,36 +371,42 @@ export default function Cotizador() {
 
           {/* Aviso de campos faltantes */}
           {paso === 1 && !puedeAvanzar() && (() => {
-            if (datos.servicio === 'cocina-modular') {
-              const falta = camposFaltantesCocina(datos)
-              return (
-                <p className="mt-4 text-center text-sm text-amber-600 font-medium">
-                  Para continuar falta: {falta.join(' · ')}
-                </p>
-              )
-            }
-            const esVinil = datos.servicio === 'vinil-lvt' || datos.servicio === 'vinil-lvt-3mm' || datos.servicio === 'vinil-spc'
-            const cantidad = datos.metros_cuadrados
-            const falta = []
-            if (!datos.ciudad?.trim()) falta.push('estado')
-            if (datos.ciudad?.trim() && !datos.municipio?.trim()) falta.push('municipio')
-            if (!datos.zona_entrega) falta.push('zona de entrega')
-            if (!cantidad || cantidad <= 0) falta.push('área aproximada en m²')
-            else if (esVinil && datos.municipio && cantidad < minimoM2Vinil(datos.municipio)) falta.push(`mínimo ${minimoM2Vinil(datos.municipio)} m² para ${datos.municipio}`)
-            if (esVinil && !datos.tipo_piso_actual) falta.push('tipo de piso actual')
-            if (esVinil && !datos.color_seleccionado) falta.push('modelo / color')
+            const falta = faltantesMedidas(datos)
+            const minimo = falta.find(f => f.startsWith('mínimo'))
+            const esCocina = datos.servicio === 'cocina-modular'
+            const cant = esCocina ? `${datos.metros_lineales ?? ''} metros lineales` : `${datos.metros_cuadrados ?? ''} m²`
+            const msg = `Hola, quiero cotizar ${NOMBRE_SERVICIO[datos.servicio ?? ''] ?? 'un trabajo'} de ${cant}`
+              + `${datos.municipio ? ` en ${datos.municipio}` : ''}. En el cotizador no llego al mínimo.`
             return (
-              <p className="mt-4 text-center text-sm text-amber-600 font-medium">
-                ⚠ Completa los siguientes campos: {falta.join(' · ')}
-              </p>
+              <>
+                <p className="mt-4 text-center text-sm text-amber-600 font-medium">
+                  ⚠ {esCocina ? 'Para continuar falta' : 'Completa los siguientes campos'}: {falta.join(' · ')}
+                </p>
+                {/* Por debajo del mínimo no hay precio en línea, pero no se pierde
+                    al cliente: se le ofrece seguir por WhatsApp con un asesor. */}
+                {minimo && (
+                  <div className="mt-4 p-4 rounded-xl border border-green-200 bg-green-50 text-center">
+                    <p className="text-sm text-gray-700">
+                      {esCocina
+                        ? 'Nuestras cocinas son a partir de 3 metros lineales. Envíanos fotos y medidas por WhatsApp y te orientamos.'
+                        : 'Para esa área no damos precio en línea en tu zona, pero sí te atendemos: escríbenos por WhatsApp con tus medidas.'}
+                    </p>
+                    <a
+                      href={`https://wa.me/${WHATSAPP_KERSA}?text=${encodeURIComponent(msg)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      onClick={() => track('3b_whatsapp_bajo_minimo', `${datos.servicio} | ${cant} | ${datos.municipio ?? ''}`)}
+                      className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-white shadow-md"
+                      style={{ backgroundColor: '#25D366' }}
+                    >
+                      Escríbenos por WhatsApp
+                    </a>
+                  </div>
+                )}
+              </>
             )
           })()}
           {paso === 2 && !puedeAvanzar() && (() => {
-            const falta = []
-            if (!validNombre(datos.nombre ?? '')) falta.push('nombre completo (nombre y apellido)')
-            if (!validTelefono(datos.telefono ?? '')) falta.push('teléfono válido (0412/0414/... o +código de país)')
-            else if (!datos.telefono_verificado) falta.push('verificar el número por SMS')
-            if (!validEmail(datos.email ?? '')) falta.push('correo electrónico válido')
+            const falta = faltantesDatos(datos)
             return (
               <p className="mt-4 text-center text-sm text-amber-600 font-medium">
                 ⚠ Falta: {falta.join(' · ')}
