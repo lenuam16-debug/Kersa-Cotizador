@@ -7,7 +7,7 @@ import {
   ACABADOS_COCINA, calcularCotizacionCocina, entradaCocinaDesdeForm, type ItemCocina,
 } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
-import { CheckCircle, CalendarCheck, MessageCircle, Printer, Loader2, AlertCircle } from 'lucide-react'
+import { CheckCircle, CalendarCheck, MessageCircle, Printer, Loader2, AlertCircle, MapPin, LocateFixed } from 'lucide-react'
 import { track } from '@/lib/track'
 import { calcularFlete, KG_M2_VINIL, KG_ML_RODAPIE, type ResultadoFlete } from '@/lib/flete'
 import { calcularFleteCocina, zonaCocinaDesdeMunicipio } from '@/lib/fleteCocina'
@@ -59,13 +59,14 @@ const COSTO_ACOND_M2 = 3             // $ base por m²
  * vendedores no miraban: lo agendado aquí les aparece de una vez en el CRM.
  */
 function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedido: string; leadId?: string; abrir: number }) {
-  const [estado, setEstado] = useState<'idle' | 'cargando' | 'elegir' | 'enviando' | 'exito'>('idle')
+  const [estado, setEstado] = useState<'idle' | 'direccion' | 'cargando' | 'elegir' | 'enviando' | 'exito'>('idle')
   const [dias, setDias] = useState<DiaDisponible[]>([])
   const [proximo, setProximo] = useState<string | null>(null)
   const [fecha, setFecha] = useState<string>('')
   const [hora, setHora] = useState<number | null>(null)
   const [direccion, setDireccion] = useState('')
-  const [codigo, setCodigo] = useState('')
+  const [coords, setCoords] = useState<string | null>(null)
+  const [ubicando, setUbicando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const headers = {
@@ -73,16 +74,37 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
     'Authorization': `Bearer ${SUPABASE_KEY}`,
   }
 
+  const esCocina = datos.servicio === 'cocina-modular'
+  // Zona elegida en el cotizador + municipio y estado: el CRM la usa para los
+  // traslados y para sus reglas (mínimos por zona, Valles del Tuy, otros estados)
+  const zonaElegida = datos.zona_entrega && datos.zona_entrega !== 'otra' ? datos.zona_entrega : ''
+  const zona = [zonaElegida, [datos.municipio, datos.ciudad].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
+  // La agenda calcula la ruta del técnico con km reales (Google Maps) a partir
+  // de este texto: las coordenadas van primero y la dirección escrita queda
+  // para el técnico (piso, apto, referencia).
+  const direccionCompleta = [
+    [coords, direccion.trim()].filter(Boolean).join(' '),
+    [datos.municipio, datos.ciudad].filter(Boolean).join(', '),
+  ].filter(Boolean).join(' — ')
+
+  // La dirección es obligatoria: el CRM la exige completa (exigir_direccion).
+  // Un link de Google Maps pegado también cuenta.
+  const direccionOk = direccion.trim().length >= 15
+
+  const pedirDisponibilidad = (conDireccion: boolean) =>
+    fetch(`${SUPABASE_URL}/functions/v1/agenda-cotizador`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ accion: 'disponibilidad', zona, pedido, ...(conDireccion ? { direccion: direccionCompleta } : {}) }),
+    }).then(r => r.json().then(d => ({ ok: r.ok, d })))
+
+  // Las horas se piden CON la dirección: así solo salen las que el técnico
+  // puede cumplir en esa zona según su ruta.
   const cargarDisponibilidad = async () => {
     setEstado('cargando')
     setError(null)
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/agenda-cotizador`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ accion: 'disponibilidad', zona: [datos.ciudad, datos.municipio].filter(Boolean).join(' ') }),
-      })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok || !d.ok || !d.dias?.length) throw new Error(d.error || 'No hay cupos disponibles por ahora')
+      const { ok, d } = await pedirDisponibilidad(true).catch(() => ({ ok: false, d: {} as any }))
+      if (!ok || !d.ok || !d.dias?.length) throw new Error(d.error || 'No hay cupos disponibles para tu zona por ahora. Escríbenos por WhatsApp y te ubicamos una visita.')
       setDias(d.dias)
       setFecha(d.dias[0].fecha)
       setHora(null)
@@ -90,19 +112,15 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
     } catch (e) {
       track('7x_error_visita', e instanceof Error ? e.message : String(e))
       setError(e instanceof Error ? e.message : 'No se pudo cargar la agenda. Intenta de nuevo.')
-      setEstado('idle')
+      setEstado('direccion')
     }
   }
 
-  // Al ver la cotización se consulta en silencio el próximo cupo real, para
+  // Al ver la cotización se consulta en silencio el próximo cupo, para
   // mostrarle al cliente que puede tener la visita pronto.
   useEffect(() => {
-    fetch(`${SUPABASE_URL}/functions/v1/agenda-cotizador`, {
-      method: 'POST', headers,
-      body: JSON.stringify({ accion: 'disponibilidad', zona: [datos.ciudad, datos.municipio].filter(Boolean).join(' ') }),
-    })
-      .then(r => r.json())
-      .then(d => {
+    pedirDisponibilidad(false)
+      .then(({ d }) => {
         const p = d?.ok && d.dias?.[0]
         if (p && p.libres?.length) setProximo(`${p.dia} a las ${horaTxt(p.libres[0])}`)
       })
@@ -112,7 +130,7 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
 
   // El llamado de arriba de la página abre la agenda directamente
   useEffect(() => {
-    if (abrir > 0 && estado === 'idle') cargarDisponibilidad()
+    if (abrir > 0 && estado === 'idle') setEstado('direccion')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abrir])
 
@@ -126,22 +144,38 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado])
 
-  // La dirección es obligatoria: el CRM la exige completa (exigir_direccion)
-  const direccionOk = direccion.trim().length >= 15
+  const usarUbicacion = () => {
+    setError(null)
+    if (!navigator.geolocation) {
+      setError('Tu teléfono no permite compartir la ubicación. Escribe la dirección o pega el link de Google Maps.')
+      return
+    }
+    setUbicando(true)
+    navigator.geolocation.getCurrentPosition(
+      p => {
+        setCoords(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`)
+        setUbicando(false)
+      },
+      () => {
+        setError('No pudimos tomar tu ubicación. Revisa el permiso de ubicación, o escribe la dirección o pega el link de Google Maps.')
+        setUbicando(false)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    )
+  }
 
-  const agendar = async () => {
-    if (!fecha || hora === null) return
+  const verHoras = () => {
     if (!direccionOk) {
       setError('Escribe tu dirección completa: urbanización, calle, edificio o casa, piso/apto y un punto de referencia.')
       return
     }
+    cargarDisponibilidad()
+  }
+
+  const agendar = async () => {
+    if (!fecha || hora === null) return
     setEstado('enviando')
     setError(null)
-    const esCocina = datos.servicio === 'cocina-modular'
-    // Zona elegida en el cotizador + municipio y estado: el CRM la usa para los
-    // traslados y para sus reglas (mínimos por zona, Valles del Tuy, otros estados)
-    const zonaElegida = datos.zona_entrega && datos.zona_entrega !== 'otra' ? datos.zona_entrega : ''
-    const zona = [zonaElegida, [datos.municipio, datos.ciudad].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/agenda-cotizador`, {
         method: 'POST', headers,
@@ -149,7 +183,7 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
           accion: 'agendar',
           nombre: datos.nombre ?? '',
           telefono: telefonoCompleto(datos.telefono ?? ''),
-          direccion: [direccion.trim(), [datos.municipio, datos.ciudad].filter(Boolean).join(', ')].filter(Boolean).join(' — '),
+          direccion: direccionCompleta,
           exigir_direccion: true,
           pedido, fecha, hora,
           zona,
@@ -160,14 +194,14 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
       const d = await res.json().catch(() => ({}))
       if (!res.ok || !d.ok) {
         if (d.ocupada) {
-          // Recargar cupos y conservar el motivo real (ocupada o traslado)
+          // La ruta del técnico cambió: se piden las horas de nuevo para esa
+          // dirección y se conserva el motivo que dio la agenda.
           await cargarDisponibilidad()
-          setError(d.error || 'Esa hora acaba de ocuparse. Escoge otra.')
+          setError(d.error || 'Esa hora ya no está disponible para tu zona. Escoge otra.')
           return
         }
         throw new Error(d.error || 'No se pudo agendar la visita.')
       }
-      setCodigo(d.codigo)
       setEstado('exito')
       track('7_visita_agendada', d.codigo)
     } catch (e) {
@@ -182,14 +216,14 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
     return (
       <div className="bg-green-50 border-2 border-green-300 rounded-2xl p-5 text-center">
         <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-        <p className="font-bold text-green-700">¡Visita agendada! {codigo && <span className="font-mono">{codigo}</span>}</p>
+        <p className="font-bold text-green-700">¡Visita agendada!</p>
         <p className="text-sm text-green-700 mt-1 capitalize">{diaInfo?.dia} · {hora !== null ? horaTxt(hora) : ''}</p>
         <p className="text-xs text-gray-500 mt-2">Nuestro equipo te llamará para confirmar la visita.</p>
       </div>
     )
   }
 
-  if (estado === 'idle' || estado === 'cargando') {
+  if (estado === 'idle') {
     return (
       <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-5">
         <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1">Siguiente paso</p>
@@ -201,21 +235,77 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
           <li>✅ Sin costo y sin compromiso</li>
         </ul>
         <button
-          onClick={() => { track('7a_clic_agendar', 'tarjeta'); cargarDisponibilidad() }}
-          disabled={estado === 'cargando'}
-          className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-4 rounded-2xl transition-colors shadow-sm disabled:opacity-60"
+          onClick={() => { track('7a_clic_agendar', 'tarjeta'); setEstado('direccion') }}
+          className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-4 rounded-2xl transition-colors shadow-sm"
         >
-          {estado === 'cargando' ? <Loader2 className="w-6 h-6 animate-spin" /> : <CalendarCheck className="w-6 h-6" />}
-          {estado === 'cargando' ? 'Buscando cupos...' : 'Escoger día y hora de mi visita'}
+          <CalendarCheck className="w-6 h-6" />
+          Escoger día y hora de mi visita
         </button>
         {proximo && (
           <p className="text-xs text-blue-700 text-center mt-2">
             Próximo cupo disponible: <span className="font-semibold">{proximo}</span>
           </p>
         )}
-        {error && (
-          <p className="text-xs text-red-500 mt-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {error}</p>
+      </div>
+    )
+  }
+
+  if (estado === 'direccion' || estado === 'cargando') {
+    return (
+      <div className="bg-white border-2 border-blue-200 rounded-2xl p-5 space-y-4">
+        <div>
+          <p className="font-bold text-gray-800 flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-blue-600" /> ¿Dónde es la visita?
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Con tu dirección te mostramos solo las horas en que el técnico puede llegar a tu zona.</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={usarUbicacion}
+          disabled={ubicando || estado === 'cargando'}
+          className="w-full flex items-center justify-center gap-2 border-2 border-blue-200 text-blue-700 font-semibold px-4 py-2.5 rounded-xl hover:bg-blue-50 transition-colors disabled:opacity-60"
+        >
+          {ubicando ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
+          {ubicando ? 'Buscando tu ubicación...' : 'Usar mi ubicación'}
+        </button>
+        {coords && (
+          <p className="text-xs text-green-700 flex items-center gap-1">
+            <CheckCircle className="w-3 h-3" /> Ubicación agregada.
+            <button type="button" onClick={() => setCoords(null)} className="underline text-gray-500 ml-1">Quitar</button>
+          </p>
         )}
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">Dirección completa *</label>
+          <textarea
+            rows={2}
+            value={direccion}
+            onChange={e => setDireccion(e.target.value)}
+            placeholder="Urbanización, calle, edificio o casa, piso/apto y un punto de referencia (o pega el link de Google Maps)"
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:outline-none focus:border-blue-400 resize-none"
+          />
+          {direccion.trim().length > 0 && !direccionOk ? (
+            <p className="text-xs text-amber-600 mt-1">Completa la dirección (urbanización, calle, edificio o casa, piso/apto y referencia).</p>
+          ) : (
+            <p className="text-xs text-gray-400 mt-1">
+              Ej: Urb. El Rosal, Av. Venezuela, Edif. Torre Lido, piso 4, apto 4-B, frente a la plaza.
+            </p>
+          )}
+        </div>
+
+        {error && (
+          <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {error}</p>
+        )}
+
+        <button
+          onClick={verHoras}
+          disabled={!direccionOk || estado === 'cargando'}
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl transition-colors disabled:opacity-50"
+        >
+          {estado === 'cargando' ? <Loader2 className="w-5 h-5 animate-spin" /> : <CalendarCheck className="w-5 h-5" />}
+          {estado === 'cargando' ? 'Buscando horas para tu zona...' : 'Ver días y horas disponibles'}
+        </button>
       </div>
     )
   }
@@ -225,6 +315,18 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
     <div className="bg-white border-2 border-blue-200 rounded-2xl p-5 space-y-4">
       <p className="font-bold text-gray-800 flex items-center gap-2">
         <CalendarCheck className="w-5 h-5 text-blue-600" /> Escoge día y hora de tu visita técnica
+      </p>
+
+      <p className="text-xs text-gray-500 flex items-start gap-1">
+        <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
+        <span>{direccion.trim()}{coords ? ' (con tu ubicación)' : ''}</span>
+        <button
+          type="button"
+          onClick={() => { setError(null); setEstado('direccion') }}
+          className="underline text-blue-600 ml-1 flex-shrink-0"
+        >
+          Cambiar
+        </button>
       </p>
 
       <div className="flex gap-2 flex-wrap">
@@ -251,31 +353,13 @@ function AgendarVisita({ datos, pedido, leadId, abrir }: { datos: PasoForm; pedi
         ))}
       </div>
 
-      <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-1">Dirección completa de la visita *</label>
-        <textarea
-          rows={2}
-          value={direccion}
-          onChange={e => setDireccion(e.target.value)}
-          placeholder="Urbanización, calle, edificio o casa, piso/apto y un punto de referencia"
-          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base focus:outline-none focus:border-blue-400 resize-none"
-        />
-        {direccion.trim().length > 0 && !direccionOk ? (
-          <p className="text-xs text-amber-600 mt-1">Completa la dirección (urbanización, calle, edificio o casa, piso/apto y referencia) para poder confirmar.</p>
-        ) : (
-          <p className="text-xs text-gray-400 mt-1">
-            Ej: Urb. El Rosal, Av. Venezuela, Edif. Torre Lido, piso 4, apto 4-B, frente a la plaza.
-          </p>
-        )}
-      </div>
-
       {error && (
         <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {error}</p>
       )}
 
       <button
         onClick={agendar}
-        disabled={hora === null || !direccionOk || estado === 'enviando'}
+        disabled={hora === null || estado === 'enviando'}
         className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl transition-colors disabled:opacity-50"
       >
         {estado === 'enviando' ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
